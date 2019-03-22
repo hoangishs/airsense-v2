@@ -9,7 +9,7 @@ void initMqttClient(char* _topic, char* _espID, PubSubClient& _mqttClient)
   sprintf(_espID, "%08d", macAddressDecimal);
   _mqttClient.setServer(mqttServerAddress, mqttServerPort);
   _mqttClient.connect(_espID);
-  DEBUG.println(_topic);
+  if(DEBUG) Serial.println(_topic);
 }
 
 void messageCreate(char* _mes, uint8_t* _flashData)

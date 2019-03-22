@@ -28,26 +28,26 @@ uint32_t mark = 0;
 
 void setup()
 {
-  DEBUG.begin(9600);
-  DEBUG.setDebugOutput(true);
-  Serial.begin(115200);
+  Serial.begin(9600);
+  if(DEBUG) Serial.setDebugOutput(true);
   pinMode(PIN_BUTTON, INPUT);
-  DEBUG.println(" - no wifi");
+  pinMode(PIN_LED, OUTPUT);
   WiFi.mode(WIFI_STA);
   initMqttClient(topic, espID, mqttClient);
   SPIFFS.begin();
   initQueueFlash(fileName);
-  DEBUG.println(" - setup done");
+  if(DEBUG) Serial.println(" - setup done");
 }
 
 void loop()
 {
   if (longPressButton())
   {
-    DEBUG.println(" - long press!");
+    if(DEBUG) Serial.println(" - long press!");
+	digitalWrite(PIN_LED, HIGH);
     if (WiFi.beginSmartConfig())
     {
-      DEBUG.println(" -------- start config wifi");
+      if(DEBUG) Serial.println(" -------- start config wifi");
     }
   }
   if (Serial.available() > 0)
@@ -142,6 +142,7 @@ void loop()
   }
   else if (WiFi.status() == WL_CONNECTED)
   {
+	  digitalWrite(PIN_LED, LOW);
     if (isGetTime)
     {
       dateTime = NTPch.getNTPtime(7.0, 0);
@@ -157,7 +158,7 @@ void loop()
       //if queue is not empty, publish data to server
       if (mqttClient.connected())
       {
-        DEBUG.print(" - publish:.. ");
+        if(DEBUG) Serial.print(" - publish:.. ");
         uint8_t flashData[FLASH_DATA_SIZE];
 
         if (checkQueueFlash(flashData, fileName))
@@ -176,7 +177,7 @@ void loop()
             sprintf(mes, "{\"data\":{\"tem\":\"%d\",\"humi\":\"%d\",\"pm1\":\"%d\",\"pm2p5\":\"%d\",\"pm10\":\"%d\",\"CO\":\"%d\",\"time\":\"%d\"}}", flashData[0], flashData[1], ((flashData[2] << 8) + flashData[3]), ((flashData[4] << 8) + flashData[5]), ((flashData[6] << 8) + flashData[7]), pm25Int, epochTime);
             if (mqttClient.publish(topic, mes, true))
             {
-              DEBUG.println(mes);
+              if(DEBUG) Serial.println(mes);
               deQueueFlash(fileName);
             }
             mqttClient.loop();
@@ -186,7 +187,7 @@ void loop()
       else if (millis() - lastMqttReconnect > 1000)
       {
         lastMqttReconnect = millis();
-        DEBUG.println(" - mqtt reconnect ");
+        if(DEBUG) Serial.println(" - mqtt reconnect ");
         mqttClient.connect(espID);
       }
     }
@@ -195,7 +196,7 @@ void loop()
   {
     //ban tin o dau queue ko co internetTime
     //ban tin o cuoi queue co internetTime
-    DEBUG.println(mark);
+    if(DEBUG) Serial.println(mark);
     if (fixTimeError(&mark, fileName))
     {
       mark = 0;
