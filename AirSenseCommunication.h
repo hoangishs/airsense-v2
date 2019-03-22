@@ -10,6 +10,7 @@
 #include <SoftwareSerial.h>
 
 #define PACKET_SIZE 26
+#define PACKET_TIME_SIZE 10
 
 const char mqttServerAddress[15] = "188.68.48.86";
 const uint16_t mqttServerPort = 1883;
