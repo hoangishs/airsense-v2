@@ -1,5 +1,3 @@
-#include <SPI.h>
-#include <SD.h>
 #include <SoftwareSerial.h>
 #define num_byte_from_esp 10
 #define num_byte_send_2_esp 26

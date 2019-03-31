@@ -1,6 +1,6 @@
-#include "AirSenseCommunication.h"
-#include "AirSenseDevice.h"
-#include "AirSenseMemories.h"
+#include "./Communication.h"
+#include "./Device.h"
+#include "./Memories.h"
 
 const char* fileName = "/hieu.txt";
 
@@ -24,30 +24,35 @@ PubSubClient mqttClient(espClient);
 NTPtime NTPch("ch.pool.ntp.org");///???
 strDateTime dateTime;
 
+WiFiServer debugServer(8888);
+WiFiClient debugClient;
+
 uint32_t mark = 0;
 
 void setup()
 {
+  DEBUG.begin(9600);
   Serial.begin(9600);
-  if (DEBUG) Serial.setDebugOutput(true);
+  DEBUG.setDebugOutput(true);
   pinMode(PIN_BUTTON, INPUT);
   pinMode(PIN_LED, OUTPUT);
   WiFi.mode(WIFI_STA);
   initMqttClient(topic, espID, mqttClient);
   SPIFFS.begin();
   initQueueFlash(fileName);
-  if (DEBUG) Serial.println(" - setup done");
+  debugServer.begin();
+  DEBUG.println(" - setup done");
 }
 
 void loop()
 {
   if (longPressButton())
   {
-    if (DEBUG) Serial.println(" - long press!");
+    DEBUG.println(" - long press!");
     digitalWrite(PIN_LED, HIGH);
     if (WiFi.beginSmartConfig())
     {
-      if (DEBUG) Serial.println(" -------- start config wifi");
+      DEBUG.println(" -------- start config wifi");
     }
   }
   if (Serial.available() > 0)
@@ -85,7 +90,7 @@ void loop()
           t.tm_mon = dataBuffer[6] - 1;         // Month, 0 - jan
           t.tm_year = dataBuffer[7] + 100;
           t.tm_isdst = -1;        // Is DST on? 1 = yes, 0 = no, -1 = unknown
-          
+
           epoch = mktime(&t);
 
           uint32_t realTime = epoch;
@@ -108,6 +113,11 @@ void loop()
   else if (WiFi.status() == WL_CONNECTED)
   {
     digitalWrite(PIN_LED, LOW);
+    if (!debugClient)
+    {
+      debugClient = debugServer.available();
+      if (debugClient) debugClient.println(debugClient.localIP().toString());
+    }
     if (isGetTime)
     {
       dateTime = NTPch.getNTPtime(7.0, 0);
@@ -122,15 +132,19 @@ void loop()
         }
         timeToArduinoBuffer[PACKET_TIME_SIZE - 2] = sum >> 8;
         timeToArduinoBuffer[PACKET_TIME_SIZE - 1] = sum & 0xff;
-        if (DEBUG) Serial.print(" - time: ");
+        DEBUG.print(" - time: ");
         for (uint8_t i = 0; i < PACKET_TIME_SIZE; i++)
         {
           Serial.write(timeToArduinoBuffer[i]);
-          if (DEBUG) Serial.print(timeToArduinoBuffer[i]);
-          if (DEBUG) Serial.print(" ");
+          DEBUG.print(timeToArduinoBuffer[i]);
+          DEBUG.print(" ");
         }
-        if (DEBUG) Serial.println();
+        DEBUG.println();
         isGetTime = false;
+        if (debugClient) debugClient.println("time ok");
+        if (debugClient) debugClient.println(dateTime.hour);
+        if (debugClient) debugClient.println(dateTime.minute);
+        if (debugClient) debugClient.println(dateTime.second);
       }
     }
     else if ((isQueueFlashEmpty(fileName) == false))
@@ -138,22 +152,27 @@ void loop()
       //if queue is not empty, publish data to server
       if (mqttClient.connected())
       {
-        if (DEBUG) Serial.print(" - publish:.. ");
+        DEBUG.print(" - publish:.. ");
         uint8_t flashData[FLASH_DATA_SIZE];
 
         if (checkQueueFlash(flashData, fileName))
         {
           char mes[256] = {0};
-          uint32_t epochTime = ((flashData[13] << 24) + (flashData[14] << 16) + (flashData[15] << 8) + flashData[16]);
+          uint32_t epochTime = ((flashData[FLASH_DATA_SIZE - 4] << 24) + (flashData[FLASH_DATA_SIZE - 3] << 16) + (flashData[FLASH_DATA_SIZE - 2] << 8) + flashData[FLASH_DATA_SIZE - 1]);
 
-          float pm25Float = (flashData[4] << 8) + flashData[5];
-          pm25Float = 1.33 * pow(pm25Float, 0.85);
-          int pm25Int = pm25Float + 0.5;
-          sprintf(mes, "{\"data\":{\"tem\":\"%d.%d\",\"humi\":\"%d.%d\",\"pm1\":\"%d.%d\",\"pm2p5\":\"%d.%d\",\"pm10\":\"%d.%d\",\"CO\":\"%d.%d\",\"time\":\"%d\"}}", flashData[0], flashData[1], flashData[2], flashData[3], ((flashData[4] << 8) + flashData[5]), flashData[6], ((flashData[7] << 8) + flashData[8]), flashData[9], ((flashData[10] << 8) + flashData[11]), flashData[12], pm25Int, 0, epochTime);
+          sprintf(mes, "{\"data\":{\"tem\":\"%d.%d\",\"humi\":\"%d.%d\",\"pm1\":\"%d.%d\",\"pm2p5\":\"%d.%d\",\"pm10\":\"%d.%d\",\"CO\":\"%d.%d\",\"time\":\"%d\"}}", flashData[0], flashData[1], flashData[2], flashData[3], ((flashData[4] << 8) + flashData[5]), flashData[6], ((flashData[7] << 8) + flashData[8]), flashData[9], ((flashData[10] << 8) + flashData[11]), flashData[12], ((flashData[13] << 8) + flashData[14]), flashData[15], epochTime);
           if (mqttClient.publish(topic, mes, true))
           {
-            if (DEBUG) Serial.println(mes);
+            DEBUG.println(mes);
             deQueueFlash(fileName);
+            if (debugClient) debugClient.println(mes);
+            uint32_t front;
+            uint32_t rear;
+            if (viewFlash(&front, &rear, fileName))
+            {
+              if (debugClient) debugClient.println(front);
+              if (debugClient) debugClient.println(rear);
+            }
           }
           mqttClient.loop();
         }
@@ -161,7 +180,7 @@ void loop()
       else if (millis() - lastMqttReconnect > 1000)
       {
         lastMqttReconnect = millis();
-        if (DEBUG) Serial.println(" - mqtt reconnect ");
+        DEBUG.println(" - mqtt reconnect ");
         mqttClient.connect(espID);
       }
     }

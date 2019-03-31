@@ -15,17 +15,15 @@ void setup()
 {
   StructInit(&PMS, &dht22, &CO, &TimeSend);
 
-  Serial.begin(9600);//ESPSerial.begin(115200);
+  DEBUGSerial.begin(9600);
+  Serial.begin(9600);
   SD.begin(10);
   dht.begin();
   RGB_Init(A2, A1, A3);
   lcd.begin();
 
   DUSTSerial.begin(9600);
-  // Switch to passive mode.
   pms.passiveMode();
-  // Default state after sensor power, but undefined after ESP restart e.g. by OTA flash, so we have to manually wake up the sensor for sure.
-  // Some logs from bootloader is sent via Serial port to the sensor after power up. This can cause invalid first read or wake up so be patient and wait for next read cycle.
   pms.wakeUp();
 
   lcd.setCursor(0, 0);		lcd.print("--:-- PM2.5:----");
@@ -33,7 +31,7 @@ void setup()
 
   RTCAlarmInit();
   Timer1Init();
-  if (DEBUG) Serial.println("End Setup...");
+  DEBUGSerial.println("End Setup...");
 }
 
 void loop()

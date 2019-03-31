@@ -3,20 +3,24 @@
 #include <LiquidCrystal_I2C.h>
 #include <dht_nonblocking.h>
 #include <PMS.h>
+#include <SPI.h>
+#include <SD.h>
+#include <DS3232RTC.h>
 
 #define DHT_SENSOR_TYPE DHT_TYPE_22
 #define DHT_SENSOR_PIN 7
 
-#define PACKET_SIZE 16
+#define PACKET_SIZE 26
+#define PACKET_TIME_SIZE 10
 
-#define TIME_TO_SEND_DATA 19500
+#define TIME_TO_SEND_DATA 60000
 
 DHT_nonblocking dht_sensor( DHT_SENSOR_PIN, DHT_SENSOR_TYPE );
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 SoftwareSerial dustSerial =  SoftwareSerial(4, 5); // RX, TX
-SoftwareSerial espSerial =  SoftwareSerial(3, 8);
+SoftwareSerial debugSerial = SoftwareSerial(8, 9);
 
 PMS pms(dustSerial);
 PMS::DATA data;
@@ -33,7 +37,6 @@ float humidity;
 uint16_t dataDustCount = 0;
 uint16_t dataDHTCount = 0;
 
-
 void sendData2ESP();
 void getDustData();
 void getDHTdata();
@@ -45,8 +48,8 @@ unsigned long lastSendData = 0;
 
 void setup()
 {
-  Serial.begin(9600);//use to debug
-  espSerial.begin(115200);
+  Serial.begin(9600);
+  debugSerial.begin(9600);
   dustSerial.begin(9600);
   pinMode(2, OUTPUT);//use to reset esp
   digitalWrite(2, LOW);//set esp reset pin to high
@@ -82,11 +85,8 @@ void getDHTdata()
     {
       lastReadDHT = millis( );
 
-      Serial.print( "---------------------T = " );
-      Serial.print( temperature, 1 );
-      Serial.print( " deg. C, H = " );
-      Serial.print( humidity, 1 );
-      Serial.println( "%" );
+      debugSerial.println( temperature, 1 );
+      debugSerial.println( humidity, 1 );
 
       if (temperature != 0 && humidity != 0)
       {
@@ -138,58 +138,57 @@ void sendData2ESP()
   //        pm10=1.06*pm10;
 
   //chuan bi data de gui cho esp
-  uint8_t _temp = temp + 0.5;
-  uint8_t _hum = hum + 0.5;
-  uint16_t _pm1 = pm1 + 0.5;
-  uint16_t _pm25 = pm25 + 0.5;
-  uint16_t _pm10 = pm10 + 0.5;
+  uint8_t _temp = temp;
+  uint8_t _hum = hum;
+  uint16_t _pm1 = pm1;
+  uint16_t _pm25 = pm25;
+  uint16_t _pm10 = pm10;
 
-  uint32_t arduinoTime = millis();
+  uint8_t dot_temp = (_temp - temp) * 100;
+  uint8_t dot_hum = (_hum - hum) * 100;
+  uint8_t dot_pm1 = (_pm1 - pm1) * 100;
+  uint8_t dot_pm25 = (_pm25 - pm25) * 100;
+  uint8_t dot_pm10 = (_pm10 - pm10) * 100;
 
-  uint8_t dataToEspBuffer[PACKET_SIZE] = {66, 77, _temp, _hum, (_pm1 >> 8), (_pm1 & 0xff), (_pm25 >> 8), (_pm25 & 0xff), (_pm10 >> 8), (_pm10 & 0xff), 0, 0, 0, 0, 0, 0};
+  uint32_t arduinoTime = millis();//rtc
 
-  dataToEspBuffer[13] = arduinoTime & 0xff;
+  uint8_t dataToEspBuffer[PACKET_SIZE] = {66, 77, _temp, dot_temp, _hum, dot_hum, (_pm1 >> 8), (_pm1 & 0xff), dot_pm1, (_pm25 >> 8), (_pm25 & 0xff), dot_pm25, (_pm10 >> 8), (_pm10 & 0xff), dot_pm10, 0, 0, 0, 0, 0, 0};
+
+  dataToEspBuffer[PACKET_SIZE - 3] = arduinoTime & 0xff;
   arduinoTime = arduinoTime >> 8;
-  dataToEspBuffer[12] = arduinoTime & 0xff;
+  dataToEspBuffer[PACKET_SIZE - 4] = arduinoTime & 0xff;
   arduinoTime = arduinoTime >> 8;
-  dataToEspBuffer[11] = arduinoTime & 0xff;
+  dataToEspBuffer[PACKET_SIZE - 5] = arduinoTime & 0xff;
   arduinoTime = arduinoTime >> 8;
-  dataToEspBuffer[10] = arduinoTime & 0xff;
+  dataToEspBuffer[PACKET_SIZE - 6] = arduinoTime & 0xff;
 
   uint16_t sum = 0;
   for (uint8_t i = 0; i < PACKET_SIZE - 2; i++)
   {
     sum += dataToEspBuffer[i];
   }
-  Serial.println(sum);
+  debugSerial.println(sum);
 
   dataToEspBuffer[PACKET_SIZE - 2] = (sum >> 8);
   dataToEspBuffer[PACKET_SIZE - 1] = (sum & 0xff);
 
   //gui cho esp
-  Serial.println(millis());
-  Serial.print(" - send to ESP ");
   for (uint8_t i = 0; i < PACKET_SIZE; i++)
   {
-    espSerial.write(dataToEspBuffer[i]);
-    Serial.print(dataToEspBuffer[i]);
-    Serial.print(" ");
+    Serial.write(dataToEspBuffer[i]);
+    debugSerial.print(dataToEspBuffer[i]);
+    debugSerial.print(" ");
   }
-  Serial.println();
+  debugSerial.println();
 }
 
 void getDustData()
 {
   if (pms.read(data))
   {
-    Serial.print("PM 1.0 (ug/m3): ");
-    Serial.println(data.PM_AE_UG_1_0);
-
-    Serial.print("PM 2.5 (ug/m3): ");
-    Serial.println(data.PM_AE_UG_2_5);
-
-    Serial.print("PM 10.0 (ug/m3): ");
-    Serial.println(data.PM_AE_UG_10_0);
+    debugSerial.println(data.PM_AE_UG_1_0);
+    debugSerial.println(data.PM_AE_UG_2_5);
+    debugSerial.println(data.PM_AE_UG_10_0);
 
     pm1Sum += data.PM_AE_UG_1_0;
     pm25Sum += data.PM_AE_UG_2_5;
@@ -206,10 +205,10 @@ void getDustData()
 
     lcd.setCursor(6, 0);
     lcd.print(pm25Char);
-    Serial.print("--- PM2.5: ");
-    Serial.print(data.PM_AE_UG_2_5);
-    Serial.print(" >> ");
-    Serial.println(pm25Int);
+
+    debugSerial.print(data.PM_AE_UG_2_5);
+    debugSerial.print(">");
+    debugSerial.println(pm25Int);
   }
 }
 

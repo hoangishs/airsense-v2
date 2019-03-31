@@ -1,4 +1,4 @@
-#include "AirSenseDevice.h"
+#include "./Device.h"
 
 uint32_t lastPressButton = 0;
 

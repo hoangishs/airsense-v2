@@ -17,6 +17,8 @@ SoftwareSerial DUSTSerial = SoftwareSerial(4, 5);
 PMS pms(DUSTSerial);
 PMS::DATA data;
 
+SoftwareSerial DEBUGSerial = SoftwareSerial(8, 9);
+
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 #define DHTPIN 7
@@ -173,12 +175,12 @@ void readData(struct StructPMS *p)
     	p -> PM10_0_Total += data.PM_AE_UG_10_0;
     	p -> DustCount ++; */
 
-    if (DEBUG) Serial.println("dust");
-    if (DEBUG) Serial.println(data.PM_AE_UG_1_0);
-    if (DEBUG) Serial.println(data.PM_AE_UG_2_5);
-    if (DEBUG) Serial.println(data.PM_AE_UG_10_0);
-	
-	p -> PM1_0 = data.PM_AE_UG_1_0;
+    //DEBUGSerial.println("dust");
+    DEBUGSerial.println(data.PM_AE_UG_1_0);
+    DEBUGSerial.println(data.PM_AE_UG_2_5);
+    DEBUGSerial.println(data.PM_AE_UG_10_0);
+
+    p -> PM1_0 = data.PM_AE_UG_1_0;
     p -> PM2_5 = data.PM_AE_UG_2_5;
     p -> PM10_0 = data.PM_AE_UG_10_0;
     RGB_Show(A2, A1, A3, p -> PM2_5);
@@ -218,10 +220,10 @@ void ReadDHT22Value(struct StructDHT22 *p)
   	p -> TempTotal += temp*10;
   	p -> DHT22Count ++; */
 
-  if (DEBUG) Serial.println("dht");
-  if (DEBUG) Serial.println(temp);
-  if (DEBUG) Serial.println(humi);
-  
+  DEBUGSerial.println("dht");
+  DEBUGSerial.println(temp);
+  DEBUGSerial.println(humi);
+
   p -> HUMI = humi * 10;
   p -> TEMP = temp * 10;
   lcd.setCursor(2, 1);		lcd.print(p -> TEMP / 10);
@@ -345,7 +347,7 @@ void WriteData2SD(struct StructPMS *a, struct StructDHT22 *b, struct StructCO *c
   {
     if (myFile.size() == 0)
     {
-      myFile.println("NodeID\tTimeStamp\ttemp\thum\tPM1\tPM2.5\tPM10\tCO");
+      //myFile.println("NodeID\tTimeStamp\ttemp\thum\tPM1\tPM2.5\tPM10\tCO");
     }
 
     myFile.print("Airsense_01\t");
@@ -399,34 +401,34 @@ void SendData2ESP(struct StructPMS *a, struct StructDHT22 *b, struct StructCO *c
   Serial.write(Data2ESP_Buff[22]);	Serial.write(Data2ESP_Buff[23]);
   Serial.write(Data2ESP_Buff[24]);	Serial.write(Data2ESP_Buff[25]);
 
-  if (DEBUG) Serial.println("send");
-  if (DEBUG) Serial.println(Data2ESP_Buff[0]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[1]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[2]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[3]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[4]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[5]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[6]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[7]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[8]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[9]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[10]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[11]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[12]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[13]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[14]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[15]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[16]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[17]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[18]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[19]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[20]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[21]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[22]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[23]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[24]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[25]);
-  if (DEBUG) Serial.println(Data2ESP_Buff[26]);
+  //DEBUGSerial.println("send");
+  DEBUGSerial.println(Data2ESP_Buff[0]);
+  DEBUGSerial.println(Data2ESP_Buff[1]);
+  DEBUGSerial.println(Data2ESP_Buff[2]);
+  DEBUGSerial.println(Data2ESP_Buff[3]);
+  DEBUGSerial.println(Data2ESP_Buff[4]);
+  DEBUGSerial.println(Data2ESP_Buff[5]);
+  DEBUGSerial.println(Data2ESP_Buff[6]);
+  DEBUGSerial.println(Data2ESP_Buff[7]);
+  DEBUGSerial.println(Data2ESP_Buff[8]);
+  DEBUGSerial.println(Data2ESP_Buff[9]);
+  DEBUGSerial.println(Data2ESP_Buff[10]);
+  DEBUGSerial.println(Data2ESP_Buff[11]);
+  DEBUGSerial.println(Data2ESP_Buff[12]);
+  DEBUGSerial.println(Data2ESP_Buff[13]);
+  DEBUGSerial.println(Data2ESP_Buff[14]);
+  DEBUGSerial.println(Data2ESP_Buff[15]);
+  DEBUGSerial.println(Data2ESP_Buff[16]);
+  DEBUGSerial.println(Data2ESP_Buff[17]);
+  DEBUGSerial.println(Data2ESP_Buff[18]);
+  DEBUGSerial.println(Data2ESP_Buff[19]);
+  DEBUGSerial.println(Data2ESP_Buff[20]);
+  DEBUGSerial.println(Data2ESP_Buff[21]);
+  DEBUGSerial.println(Data2ESP_Buff[22]);
+  DEBUGSerial.println(Data2ESP_Buff[23]);
+  DEBUGSerial.println(Data2ESP_Buff[24]);
+  DEBUGSerial.println(Data2ESP_Buff[25]);
+  DEBUGSerial.println(Data2ESP_Buff[26]);
 }
 
 void SendRequireTime()

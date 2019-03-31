@@ -1,4 +1,4 @@
-#include "AirSenseMemories.h"
+#include "./Memories.h"
 
 void convertToByte(uint32_t _data, uint8_t* _toData, uint8_t size)
 {
@@ -55,23 +55,23 @@ bool fixTimeError(uint32_t* _mark, const char* _fileName)
       _f.seek(((*_mark + FLASH_DATA_SIZE) % FLASH_QUEUE_SIZE) + 8);
       uint8_t nextTime[8];
       _f.read(nextTime, 8);
-      if(DEBUG) Serial.print("nextTime ");
+      DEBUG.print("nextTime ");
       for (size_t i = 0; i < 8; i++)
       {
-        if(DEBUG) Serial.print(nextTime[i]);
-        if(DEBUG) Serial.print(" ");
+        DEBUG.print(nextTime[i]);
+        DEBUG.print(" ");
       }
-      if(DEBUG) Serial.println();
+      DEBUG.println();
 
       uint32_t arduinoTime = (time[0] << 24) + (time[1] << 16) + (time[2] << 8) + time[3];
       uint32_t nextArduinoTime = (nextTime[0] << 24) + (nextTime[1] << 16) + (nextTime[2] << 8) + nextTime[3];
       uint32_t nextInternetTime = (nextTime[4] << 24) + (nextTime[5] << 16) + (nextTime[6] << 8) + nextTime[7];
-      if(DEBUG) Serial.print("nextInternetTime ");
-      if(DEBUG) Serial.println(nextInternetTime);
+      DEBUG.print("nextInternetTime ");
+      DEBUG.println(nextInternetTime);
 
       uint32_t internetTime = nextInternetTime - ((nextArduinoTime - arduinoTime) / 1000);
-      if(DEBUG) Serial.print("internetTime ");
-      if(DEBUG) Serial.println(internetTime);
+      DEBUG.print("internetTime ");
+      DEBUG.println(internetTime);
 
       uint8_t _internetTime[4];
 
@@ -106,20 +106,20 @@ bool getPreData(uint8_t* _data, const char* _fileName)
 
     if (__front == __rear)
     {
-      if(DEBUG) Serial.println("queue is empty.");
+      DEBUG.println("queue is empty.");
       return false;// file empty
     }
 
     _f.seek((__rear + FLASH_QUEUE_SIZE - FLASH_DATA_SIZE) % FLASH_QUEUE_SIZE);
     _f.read(_data, FLASH_DATA_SIZE); // data
 
-    if(DEBUG) Serial.print("getPreData ");
+    DEBUG.print("getPreData ");
     for (size_t i = 0; i < FLASH_DATA_SIZE; i++)
     {
-      if(DEBUG) Serial.print(_data[i]);
-      if(DEBUG) Serial.print(" ");
+      DEBUG.print(_data[i]);
+      DEBUG.print(" ");
     }
-    if(DEBUG) Serial.println();
+    DEBUG.println();
 
     _f.close();
 
@@ -143,7 +143,7 @@ void emptyQueue(const char* _fileName)
 
     if (__front == __rear)
     {
-      if(DEBUG) Serial.println("queue is empty.");
+      DEBUG.println("queue is empty.");
       return;// file empty
     }
 
@@ -156,7 +156,7 @@ void emptyQueue(const char* _fileName)
     _f.seek(1);
     _f.write(_front, _flashCountSize);// new front in text file
 
-    if(DEBUG) Serial.println("emptyQueue");
+    DEBUG.println("emptyQueue");
 
     _f.close();
   }
@@ -188,17 +188,17 @@ bool deQueueFlash(const char* _fileName)
       return false;// file empty
     }
 
-    if(DEBUG) Serial.print("deQueueFlash ");
-    if(DEBUG) Serial.print(__front);
-    if(DEBUG) Serial.print(" ");
-    if(DEBUG) Serial.print(__rear);
+    DEBUG.print("deQueueFlash ");
+    DEBUG.print(__front);
+    DEBUG.print(" ");
+    DEBUG.print(__rear);
 
     __front = (__front + FLASH_DATA_SIZE) % FLASH_QUEUE_SIZE;
 
-    if(DEBUG) Serial.print(" -> ");
-    if(DEBUG) Serial.print(__front);
-    if(DEBUG) Serial.print(" ");
-    if(DEBUG) Serial.println(__rear);
+    DEBUG.print(" -> ");
+    DEBUG.print(__front);
+    DEBUG.print(" ");
+    DEBUG.println(__rear);
 
     uint8_t _front[_flashCountSize];
 
@@ -234,13 +234,13 @@ bool checkQueueFlash(uint8_t* _data, const char* _fileName)
     _f.seek(__front);
     _f.read(_data, FLASH_DATA_SIZE); // data
 
-    if(DEBUG) Serial.print("checkQueueFlash ");
+    DEBUG.print("checkQueueFlash ");
     for (size_t i = 0; i < FLASH_DATA_SIZE; i++)
     {
-      if(DEBUG) Serial.print(_data[i]);
-      if(DEBUG) Serial.print(" ");
+      DEBUG.print(_data[i]);
+      DEBUG.print(" ");
     }
-    if(DEBUG) Serial.println();
+    DEBUG.println();
 
     _f.close();
 
@@ -285,8 +285,8 @@ void initQueueFlash(const char* _fileName)
     _f.seek(0);
     uint8_t _flashCountSize = _f.read();
 
-    if(DEBUG) Serial.print("initQueueFlash ");
-    if(DEBUG) Serial.println(_flashCountSize);
+    DEBUG.print("initQueueFlash ");
+    DEBUG.println(_flashCountSize);
 
     if (_flashCountSize == FLASH_COUNT_SIZE)
     {
@@ -326,13 +326,13 @@ bool enQueueFlash(uint8_t* _data, const char* _fileName)
     _f.seek(__rear);
     _f.write(_data, FLASH_DATA_SIZE);
 
-    if(DEBUG) Serial.print("enQueueFlash ");
+    DEBUG.print("enQueueFlash ");
     for (size_t i = 0; i < FLASH_DATA_SIZE; i++)
     {
-      if(DEBUG) Serial.print(_data[i]);
-      if(DEBUG) Serial.print(" ");
+      DEBUG.print(_data[i]);
+      DEBUG.print(" ");
     }
-    if(DEBUG) Serial.println();
+    DEBUG.println();
 
     if (__front == (__rear + FLASH_DATA_SIZE) % FLASH_QUEUE_SIZE)
     {
@@ -346,17 +346,17 @@ bool enQueueFlash(uint8_t* _data, const char* _fileName)
       _f.write(_front, _flashCountSize);
     }
 
-    if(DEBUG) Serial.print("enQueueFlash ");
-    if(DEBUG) Serial.print(__front);
-    if(DEBUG) Serial.print(" ");
-    if(DEBUG) Serial.print(__rear);
+    DEBUG.print("enQueueFlash ");
+    DEBUG.print(__front);
+    DEBUG.print(" ");
+    DEBUG.print(__rear);
 
     __rear = (__rear + FLASH_DATA_SIZE) % FLASH_QUEUE_SIZE;
 
-    if(DEBUG) Serial.print(" -> ");
-    if(DEBUG) Serial.print(__front);
-    if(DEBUG) Serial.print(" ");
-    if(DEBUG) Serial.println(__rear);
+    DEBUG.print(" -> ");
+    DEBUG.print(__front);
+    DEBUG.print(" ");
+    DEBUG.println(__rear);
 
     uint8_t _rear[_flashCountSize];
 

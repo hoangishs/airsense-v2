@@ -1,13 +1,9 @@
-#ifndef AirSenseMemories_h
-#define AirSenseMemories_h
+#ifndef Memories_h
+#define Memories_h
 
-#include "AirSenseStructDefine.h"
+#include "./StructDefine.h"
 
 #include <FS.h>
-
-#define FLASH_COUNT_SIZE 3
-#define FLASH_DATA_SIZE 17
-#define FLASH_QUEUE_SIZE 99994     //FLASH_DATA_SIZE*NUM_DATA
 
 bool deQueueFlash(const char* _fileName);
 bool checkQueueFlash(uint8_t* _data, const char* _fileName);
