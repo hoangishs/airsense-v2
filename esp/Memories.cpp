@@ -23,6 +23,9 @@ uint8_t getFlashCount(File _f, uint32_t* __front, uint32_t* __rear)
   uint8_t _rear[_flashCountSize];
   _f.read(_rear, _flashCountSize);// rear in text file
 
+  *__front = 0;
+  *__rear = 0;
+
   for (size_t i = 0; i < _flashCountSize; i++)
   {
     *__front += _front[i] << (8 * (_flashCountSize - i - 1));
@@ -39,7 +42,7 @@ bool fixTimeError(uint32_t* _mark, const char* _fileName)
     uint32_t __front = 0;
     uint32_t __rear = 0;
 
-    getFlashCount(_f, &__front, &__rear);
+    uint8_t _flashCountSize = getFlashCount(_f, &__front, &__rear);
 
     if (*_mark == 0)
     {
@@ -69,18 +72,37 @@ bool fixTimeError(uint32_t* _mark, const char* _fileName)
       DEBUG.print("nextInternetTime ");
       DEBUG.println(nextInternetTime);
 
-      uint32_t internetTime = nextInternetTime - ((nextArduinoTime - arduinoTime) / 1000);
-      DEBUG.print("internetTime ");
-      DEBUG.println(internetTime);
+      uint32_t internetTime = 0;
 
-      uint8_t _internetTime[4];
+      if (nextArduinoTime > arduinoTime)
+      {
+        internetTime = nextInternetTime - ((nextArduinoTime - arduinoTime) / 1000);
 
-      convertToByte(internetTime, _internetTime, 4);
+        DEBUG.print("internetTime ");
+        DEBUG.println(internetTime);
 
-      _f.seek(*_mark + 12);
-      _f.write(_internetTime, 4);
+        uint8_t _internetTime[4];
 
-      _f.close();
+        convertToByte(internetTime, _internetTime, 4);
+
+        _f.seek(*_mark + 12);
+        _f.write(_internetTime, 4);
+
+        _f.close();
+      }
+      else
+      {
+        //mat dien, empty queue
+        __front = ((*_mark + FLASH_DATA_SIZE) % FLASH_QUEUE_SIZE);
+
+        uint8_t _front[_flashCountSize];
+
+        convertToByte(__front, _front, _flashCountSize);
+
+        _f.seek(1);
+        _f.write(_front, _flashCountSize);// new front in text file
+        return true;
+      }
     }
 
     if (*_mark == __front)

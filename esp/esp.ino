@@ -166,8 +166,8 @@ void loop()
             DEBUG.println(mes);
             deQueueFlash(fileName);
             if (debugClient) debugClient.println(mes);
-            uint32_t front;
-            uint32_t rear;
+            uint32_t front = 0;
+            uint32_t rear = 0;
             if (viewFlash(&front, &rear, fileName))
             {
               if (debugClient) debugClient.println(front);
