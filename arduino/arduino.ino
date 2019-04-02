@@ -8,49 +8,46 @@
 #include <DS3232RTC.h>
 #include <MQ7.h>
 
-#define DHT_SENSOR_TYPE DHT_TYPE_22
-#define DHT_SENSOR_PIN 7
-
-#define PACKET_SIZE 26
-#define PACKET_ESP_SIZE 10
-
-uint8_t dataBuffer[PACKET_ESP_SIZE];
-uint8_t dataByteCount = 0;
-
-DHT_nonblocking dht_sensor( DHT_SENSOR_PIN, DHT_SENSOR_TYPE );
+SoftwareSerial debugSerial = SoftwareSerial(8, 9);
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-SoftwareSerial dustSerial =  SoftwareSerial(4, 5); // RX, TX
-SoftwareSerial debugSerial = SoftwareSerial(8, 9);
+#define PACKET_SIZE 24
+#define PACKET_ESP_SIZE 8
+uint8_t dataBuffer[PACKET_ESP_SIZE];
+uint8_t dataByteCount = 0;
+uint32_t lastSendData = 0;
 
-PMS pms(dustSerial);
-PMS::DATA data;
-uint32_t startTimeGetDust = 0;
-bool isGetDustData = false;
-
-MQ7 mq7(A0, 5.0);
-
-unsigned long lastReadDHT = 0;
-
-unsigned long pm1Sum = 0;
-unsigned long pm25Sum = 0;
-unsigned long pm10Sum = 0;
+#define DHT_SENSOR_TYPE DHT_TYPE_22
+#define DHT_SENSOR_PIN 7
+DHT_nonblocking dht_sensor( DHT_SENSOR_PIN, DHT_SENSOR_TYPE );
+uint32_t lastReadDHT = 0;
 float temperatureSum = 0;
 float humiditySum = 0;
 float temperature;
 float humidity;
-uint16_t dataDustCount = 0;
-uint16_t dataDHTCount = 0;
+uint8_t dataDHTCount = 0;
+
+SoftwareSerial dustSerial =  SoftwareSerial(4, 5); // RX, TX
+PMS pms(dustSerial);
+PMS::DATA data;
+uint32_t startTimeGetDust = 0;
+bool isGetDustData = false;
+uint32_t pm1Sum = 0;
+uint32_t pm25Sum = 0;
+uint32_t pm10Sum = 0;
+uint8_t dataDustCount = 0;
+
+MQ7 mq7(A0, 5.0);
+uint32_t lastReadMQ7 = 0;
+uint32_t COppmSum = 0;
+uint8_t dataMQ7Count = 0;
 
 void sendData2ESP();
 void getDustData();
 void getDHTdata();
+void getMQ7data();
 void lcdInit();
-
-bool isResetESP = true;
-
-unsigned long lastSendData = 0;
 
 void setup()
 {
@@ -84,35 +81,68 @@ void loop()
     if (dataByteCount == PACKET_ESP_SIZE)
     {
       dataByteCount = 0;
-      if (dataBuffer[1] == 77)
+      uint16_t check = 0;
+      for (uint8_t i = 0; i < PACKET_ESP_SIZE - 2; i++)
       {
-        uint16_t check = 0;
-        for (uint8_t i = 0; i < PACKET_ESP_SIZE - 2; i++)
-        {
-          check += dataBuffer[i];
-        }
-        uint16_t check2 = (dataBuffer[PACKET_ESP_SIZE - 2] << 8) + dataBuffer[PACKET_ESP_SIZE - 1];
-        if (check == check2)
+        check += dataBuffer[i];
+      }
+      uint16_t check2 = (dataBuffer[PACKET_ESP_SIZE - 2] << 8) + dataBuffer[PACKET_ESP_SIZE - 1];
+      if (check == check2)
+      {
+        if (dataBuffer[1] == 77)
         {
           //read dust
           isGetDustData = true;
           startTimeGetDust = millis();
         }
+        else if (dataBuffer[1] == 88)
+        {
+          //time
+          uint32_t internetTime = (dataBuffer[2] << 24) + (dataBuffer[3] << 16) + (dataBuffer[4] << 8) + dataBuffer[5];
+          uint32_t arduinoTime = RTC.get();
+          debugSerial.println(internetTime);
+          debugSerial.println(arduinoTime);
+          if (internetTime > arduinoTime)
+          {
+            if (internetTime - arduinoTime > 3)
+              RTC.set(internetTime);
+          }
+          else
+          {
+            if (arduinoTime - internetTime > 3)
+              RTC.set(internetTime);
+          }
+        }
+        else if (dataBuffer[1] == 99)
+        {
+          //mes
+        }
       }
-      else if (dataBuffer[1] == 88)
-      {
-        //time
-      }
-      else if (dataBuffer[1] == 99)
-      {
-        //mes
-      }
+
     }
   }
   else
   {
     getDHTdata();
-    //getCO
+    getMQ7data();
+  }
+}
+
+void getMQ7data()
+{
+  if (millis() - lastReadMQ7 > 1000)
+  {
+    lastReadMQ7 = millis();
+
+    float CO = mq7.getPPM();
+
+    debugSerial.println( CO, 1 );
+
+    if (CO > 19.0)
+    {
+      COppmSum += CO;
+      dataMQ7Count++;
+    }
   }
 }
 
@@ -170,6 +200,13 @@ void sendData2ESP()
     pm10Sum = 0;
     dataDustCount = 0;
   }
+  float co = 0;
+  if (dataMQ7Count != 0)
+  {
+    co = COppmSum / dataMQ7Count;
+    COppmSum = 0;
+    dataMQ7Count = 0;
+  }
 
   // cong thuc cua airbeam
   //        pm1=0.66776*pow(pm1,1.1);
@@ -182,16 +219,18 @@ void sendData2ESP()
   uint16_t _pm1 = pm1;
   uint16_t _pm25 = pm25;
   uint16_t _pm10 = pm10;
+  uint16_t _co = co;
 
   uint8_t dot_temp = (_temp - temp) * 100;
   uint8_t dot_hum = (_hum - hum) * 100;
   uint8_t dot_pm1 = (_pm1 - pm1) * 100;
   uint8_t dot_pm25 = (_pm25 - pm25) * 100;
   uint8_t dot_pm10 = (_pm10 - pm10) * 100;
+  uint8_t dot_co = (_co - co) * 100;
 
-  uint32_t arduinoTime = millis();//rtc
+  uint32_t arduinoTime = RTC.get();//rtc
 
-  uint8_t dataToEspBuffer[PACKET_SIZE] = {66, 77, _temp, dot_temp, _hum, dot_hum, (_pm1 >> 8), (_pm1 & 0xff), dot_pm1, (_pm25 >> 8), (_pm25 & 0xff), dot_pm25, (_pm10 >> 8), (_pm10 & 0xff), dot_pm10, 0, 0, 0, 0, 0, 0};
+  uint8_t dataToEspBuffer[PACKET_SIZE] = {66, 77, _temp, dot_temp, _hum, dot_hum, (_pm1 >> 8), (_pm1 & 0xff), dot_pm1, (_pm25 >> 8), (_pm25 & 0xff), dot_pm25, (_pm10 >> 8), (_pm10 & 0xff), dot_pm10, (_co >> 8), (_co & 0xff), dot_co, 0, 0, 0, 0, 0, 0};
 
   dataToEspBuffer[PACKET_SIZE - 3] = arduinoTime & 0xff;
   arduinoTime = arduinoTime >> 8;

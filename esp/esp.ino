@@ -10,9 +10,11 @@ uint8_t dataByteCount = 0;
 bool isGetTime = true;
 bool isTimeOK = true;
 bool isFixTimeError = false;
+bool isSendTimeToArduino = false;
 
 uint32_t lastMqttReconnect = 0;
 uint32_t lastRequestArduino = 0;
+uint32_t lastGetTime = 0;
 
 char topic[25];
 char espID[10];
@@ -56,10 +58,53 @@ void loop()
   }
   if (millis() - lastRequestArduino > 2500)
   {
-    //message from server
-    //internet time
+    lastRequestArduino = millis();
+    if (false)
+    {
+      //message from server
+    }
+    else if (isSendTimeToArduino)
+    {
+      //internet time
+      isSendTimeToArduino = false;
 
-    //read dust request
+      uint8_t timeToArduinoBuffer[PACKET_ESP_SIZE] = {66, 88, 0, 0, 0, 0, 0, 0};
+
+      uint16_t sum = 0;
+      for (uint8_t i = 0; i < PACKET_ESP_SIZE - 2; i++)
+      {
+        sum += timeToArduinoBuffer[i];
+      }
+      timeToArduinoBuffer[PACKET_ESP_SIZE - 2] = sum >> 8;
+      timeToArduinoBuffer[PACKET_ESP_SIZE - 1] = sum & 0xff;
+
+      DEBUG.print(" - time: ");
+      for (uint8_t i = 0; i < PACKET_ESP_SIZE; i++)
+      {
+        Serial.write(timeToArduinoBuffer[i]);
+        DEBUG.print(timeToArduinoBuffer[i]);
+        DEBUG.print(" ");
+      }
+      DEBUG.println();
+
+      if (debugClient) debugClient.println("send time to arduino");
+      if (debugClient) debugClient.println(lastGetTime);
+      if (debugClient) debugClient.println(lastRequestArduino);
+    }
+    else
+    {
+      //read dust request
+      uint8_t requestDustBuffer[PACKET_ESP_SIZE] = {66, 77, 0, 0, 0, 0, 0, 66 + 77};
+
+      DEBUG.print(" - request dust: ");
+      for (uint8_t i = 0; i < PACKET_ESP_SIZE; i++)
+      {
+        Serial.write(requestDustBuffer[i]);
+        DEBUG.print(requestDustBuffer[i]);
+        DEBUG.print(" ");
+      }
+      DEBUG.println();
+    }
   }
   if (Serial.available() > 0)
   {
@@ -81,31 +126,11 @@ void loop()
         {
           //chuan bi data
           uint8_t saveData[FLASH_DATA_SIZE] = {0};
-          for (uint8_t i = 0; i < PACKET_SIZE - 4; i++)
+          for (uint8_t i = 0; i < FLASH_DATA_SIZE; i++)
           {
-            saveData[i] = dataBuffer[i + 8];
+            saveData[i] = dataBuffer[i + 2];
           }
 
-          struct tm t;
-          time_t epoch;
-
-          t.tm_hour = dataBuffer[2];
-          t.tm_min = dataBuffer[3];
-          t.tm_sec = dataBuffer[4];
-          t.tm_mday = dataBuffer[5];          // Day of the month
-          t.tm_mon = dataBuffer[6] - 1;         // Month, 0 - jan
-          t.tm_year = dataBuffer[7] + 100;
-          t.tm_isdst = -1;        // Is DST on? 1 = yes, 0 = no, -1 = unknown
-
-          epoch = mktime(&t);
-
-          uint32_t realTime = epoch;
-
-          for (uint8_t i = 0; i < 4; i++)
-          {
-            saveData[FLASH_DATA_SIZE - i - 1] = realTime & 0xff;
-            realTime = realTime >> 8;
-          }
           //enQueueFlash
           enQueueFlash(saveData, fileName);
         }
@@ -120,29 +145,15 @@ void loop()
       debugClient = debugServer.available();
       if (debugClient) debugClient.println(debugClient.localIP().toString());
     }
-    if (isGetTime)
+    if (isGetTime || (millis() - lastGetTime > 100000))
     {
       dateTime = NTPch.getNTPtime(7.0, 0);
       if (dateTime.valid)
       {
         //if got time
-        uint8_t timeToArduinoBuffer[PACKET_TIME_SIZE] = {66, 88, dateTime.hour, dateTime.minute, dateTime.second, dateTime.day, dateTime.month, dateTime.year - 2000, 0, 0};
-        uint16_t sum = 0;
-        for (uint8_t i = 0; i < PACKET_TIME_SIZE - 2; i++)
-        {
-          sum += timeToArduinoBuffer[i];
-        }
-        timeToArduinoBuffer[PACKET_TIME_SIZE - 2] = sum >> 8;
-        timeToArduinoBuffer[PACKET_TIME_SIZE - 1] = sum & 0xff;
-        DEBUG.print(" - time: ");
-        for (uint8_t i = 0; i < PACKET_TIME_SIZE; i++)
-        {
-          Serial.write(timeToArduinoBuffer[i]);
-          DEBUG.print(timeToArduinoBuffer[i]);
-          DEBUG.print(" ");
-        }
-        DEBUG.println();
         isGetTime = false;
+        isSendTimeToArduino = true;
+        lastGetTime = millis();
         if (debugClient) debugClient.println("time ok");
         if (debugClient) debugClient.println(dateTime.hour);
         if (debugClient) debugClient.println(dateTime.minute);
