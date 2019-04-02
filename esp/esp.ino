@@ -55,6 +55,10 @@ void loop()
       DEBUG.println(" -------- start config wifi");
     }
   }
+  if ()
+  {
+    //read dust
+  }
   if (Serial.available() > 0)
   {
     dataBuffer[dataByteCount] = Serial.read();

@@ -6,14 +6,13 @@
 #include <SPI.h>
 #include <SD.h>
 #include <DS3232RTC.h>
+#include <MQ7.h>
 
 #define DHT_SENSOR_TYPE DHT_TYPE_22
 #define DHT_SENSOR_PIN 7
 
 #define PACKET_SIZE 26
-#define PACKET_TIME_SIZE 10
-
-#define TIME_TO_SEND_DATA 60000
+#define PACKET_ESP_SIZE 10
 
 DHT_nonblocking dht_sensor( DHT_SENSOR_PIN, DHT_SENSOR_TYPE );
 
@@ -24,6 +23,8 @@ SoftwareSerial debugSerial = SoftwareSerial(8, 9);
 
 PMS pms(dustSerial);
 PMS::DATA data;
+
+MQ7 mq7(A0, 5.0);
 
 unsigned long lastReadDHT = 0;
 
@@ -48,33 +49,33 @@ unsigned long lastSendData = 0;
 
 void setup()
 {
-  Serial.begin(9600);
   debugSerial.begin(9600);
   dustSerial.begin(9600);
-  pinMode(2, OUTPUT);//use to reset esp
-  digitalWrite(2, LOW);//set esp reset pin to high
+  Serial.begin(9600);
+  RTC.setAlarm(ALM2_EVERY_MINUTE, 0, 0, 0, 0);
+  RTC.alarm(ALARM_2);
   lcdInit();
 }
 
 void loop()
 {
-  if (millis() - lastSendData > TIME_TO_SEND_DATA)
+  if (RTC.alarm(ALARM_2))
   {
-    lastSendData = millis();
     sendData2ESP();
-    isResetESP = true;
   }
-
-  if (isResetESP && (millis() - lastSendData > (TIME_TO_SEND_DATA - 10000)))
+  else if (true)
   {
-    isResetESP = false;
-    digitalWrite(2, HIGH);
-    delay(100);
-    digitalWrite(2, LOW);
+    getDustData();
   }
-
-  getDustData();
-  getDHTdata();
+  else if (Serial.available() > 0)
+  {
+    //read dust, mes, time
+  }
+  else
+  {
+    getDHTdata();
+    //getCO
+  }
 }
 
 void getDHTdata()
