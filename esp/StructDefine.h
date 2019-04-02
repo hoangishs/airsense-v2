@@ -4,7 +4,7 @@
 #define DEBUG Serial1
 
 #define PACKET_SIZE 26
-#define PACKET_TIME_SIZE 10
+#define PACKET_ESP_SIZE 10
 
 #define PIN_BUTTON 0
 #define PIN_LED 14

@@ -11,9 +11,8 @@ bool isGetTime = true;
 bool isTimeOK = true;
 bool isFixTimeError = false;
 
-uint32_t lastGetTime = 0;
-uint32_t lastGetData = 0;
 uint32_t lastMqttReconnect = 0;
+uint32_t lastRequestArduino = 0;
 
 char topic[25];
 char espID[10];
@@ -55,9 +54,12 @@ void loop()
       DEBUG.println(" -------- start config wifi");
     }
   }
-  if ()
+  if (millis()-lastRequestArduino>2500)
   {
-    //read dust
+    //message from server
+	//internet time
+	
+	//read dust request
   }
   if (Serial.available() > 0)
   {
