@@ -54,12 +54,12 @@ void loop()
       DEBUG.println(" -------- start config wifi");
     }
   }
-  if (millis()-lastRequestArduino>2500)
+  if (millis() - lastRequestArduino > 2500)
   {
     //message from server
-	//internet time
-	
-	//read dust request
+    //internet time
+
+    //read dust request
   }
   if (Serial.available() > 0)
   {
@@ -109,10 +109,6 @@ void loop()
           //enQueueFlash
           enQueueFlash(saveData, fileName);
         }
-      }
-      else if (dataBuffer[1] == 88)
-      {
-        isGetTime = true;
       }
     }
   }

@@ -14,6 +14,9 @@
 #define PACKET_SIZE 26
 #define PACKET_ESP_SIZE 10
 
+uint8_t dataBuffer[PACKET_ESP_SIZE];
+uint8_t dataByteCount = 0;
+
 DHT_nonblocking dht_sensor( DHT_SENSOR_PIN, DHT_SENSOR_TYPE );
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -23,6 +26,8 @@ SoftwareSerial debugSerial = SoftwareSerial(8, 9);
 
 PMS pms(dustSerial);
 PMS::DATA data;
+uint32_t startTimeGetDust = 0;
+bool isGetDustData = false;
 
 MQ7 mq7(A0, 5.0);
 
@@ -63,13 +68,46 @@ void loop()
   {
     sendData2ESP();
   }
-  else if (true)
+  else if (isGetDustData)
   {
-    getDustData();
+    if (millis() - startTimeGetDust < 2000)
+      getDustData();
+    else
+      isGetDustData = false;
   }
   else if (Serial.available() > 0)
   {
     //read dust, mes, time
+    dataBuffer[dataByteCount] = Serial.read();
+    if (dataBuffer[0] == 66)
+      dataByteCount++;
+    if (dataByteCount == PACKET_ESP_SIZE)
+    {
+      dataByteCount = 0;
+      if (dataBuffer[1] == 77)
+      {
+        uint16_t check = 0;
+        for (uint8_t i = 0; i < PACKET_ESP_SIZE - 2; i++)
+        {
+          check += dataBuffer[i];
+        }
+        uint16_t check2 = (dataBuffer[PACKET_ESP_SIZE - 2] << 8) + dataBuffer[PACKET_ESP_SIZE - 1];
+        if (check == check2)
+        {
+          //read dust
+          isGetDustData = true;
+          startTimeGetDust = millis();
+        }
+      }
+      else if (dataBuffer[1] == 88)
+      {
+        //time
+      }
+      else if (dataBuffer[1] == 99)
+      {
+        //mes
+      }
+    }
   }
   else
   {
@@ -187,6 +225,8 @@ void getDustData()
 {
   if (pms.read(data))
   {
+    isGetDustData = false;
+
     debugSerial.println(data.PM_AE_UG_1_0);
     debugSerial.println(data.PM_AE_UG_2_5);
     debugSerial.println(data.PM_AE_UG_10_0);
