@@ -88,6 +88,7 @@ void loop()
       timeToArduinoBuffer[PACKET_ESP_SIZE - 1] = sum & 0xff;
 
       DEBUG.print(" - time: ");
+      if (debugClient) debugClient.println("send time to arduino");
       for (uint8_t i = 0; i < PACKET_ESP_SIZE; i++)
       {
         Serial.write(timeToArduinoBuffer[i]);
@@ -99,27 +100,27 @@ void loop()
       DEBUG.println();
       if (debugClient) debugClient.println();
 
-      if (debugClient) debugClient.println("send time to arduino");
+
       if (debugClient) debugClient.println(lastGetTime);
       if (debugClient) debugClient.println(lastRequestArduino);
     }
-    else
-    {
-      //read dust request
-      uint8_t requestDustBuffer[PACKET_ESP_SIZE] = {66, 77, 0, 0, 0, 0, 0, 66 + 77};
 
-      DEBUG.print(" - request dust: ");
-      for (uint8_t i = 0; i < PACKET_ESP_SIZE; i++)
-      {
-        Serial.write(requestDustBuffer[i]);
-        DEBUG.print(requestDustBuffer[i]);
-        DEBUG.print(" ");
-        if (debugClient) debugClient.print(requestDustBuffer[i]);
-        if (debugClient) debugClient.print(" ");
-      }
-      DEBUG.println();
-      if (debugClient) debugClient.println();
+    //read dust request
+    uint8_t requestDustBuffer[PACKET_ESP_SIZE] = {66, 77, 0, 0, 0, 0, 0, 66 + 77};
+
+    DEBUG.print(" - request dust: ");
+    if (debugClient) debugClient.println(" - request dust: ");
+    for (uint8_t i = 0; i < PACKET_ESP_SIZE; i++)
+    {
+      Serial.write(requestDustBuffer[i]);
+      DEBUG.print(requestDustBuffer[i]);
+      DEBUG.print(" ");
+      if (debugClient) debugClient.print(requestDustBuffer[i]);
+      if (debugClient) debugClient.print(" ");
     }
+    DEBUG.println();
+    if (debugClient) debugClient.println();
+
   }
   if (Serial.available() > 0)
   {
@@ -164,7 +165,7 @@ void loop()
       debugClient = debugServer.available();
       if (debugClient) debugClient.println(debugClient.localIP().toString());
     }
-    if (isGetTime || (millis() - lastGetTime > 40000))
+    if (isGetTime || (millis() - lastGetTime > 100000))
     {
       dateTime = NTPch.getNTPtime(7.0, 0);
       if (dateTime.valid)

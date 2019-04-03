@@ -313,6 +313,9 @@ void getDustData()
 
     lcd.setCursor(6, 0);
     lcd.print(pm25Char);
+    
+    //lcd.print(" ");
+    //lcd.print(dataDustCount);
 
     debugSerial.print(data.PM_AE_UG_2_5);
     debugSerial.print(">");
