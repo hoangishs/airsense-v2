@@ -45,6 +45,8 @@ uint32_t lastReadMQ7 = 0;
 uint32_t COppmSum = 0;
 uint8_t dataMQ7Count = 0;
 
+bool isSD = false;
+
 void sendData2ESP();
 void getDustData();
 void getDHTdata();
@@ -52,6 +54,7 @@ void getMQ7data();
 void lcdInit();
 bool rtcAlarm();
 void rtcUpdate();
+void logDataToSD(float _temperature, float _humidity, uint16_t _pm1, uint16_t _pm25, uint16_t _pm10, float _COppm);
 
 void setup()
 {
@@ -60,6 +63,8 @@ void setup()
   Serial.begin(9600);
   lcdInit();
   rtc.begin();
+  if (SD.begin(10))
+    isSD = true;
 }
 
 void loop()
@@ -115,6 +120,53 @@ void loop()
   }
 }
 
+void logDataToSD(float _temperature, float _humidity, uint16_t _pm1, uint16_t _pm25, uint16_t _pm10, float _COppm)
+{
+  if (isSD)
+  {
+    char fileName[12];
+    Time t = rtc.getTime();
+    sprintf(fileName, "%2d-%2d-%2d.txt", t.date, t.mon, t.year - 2000);
+
+    debugSerial.println(fileName);
+
+    File f = SD.open(fileName, FILE_WRITE);
+
+    if (f)
+    {
+      f.print(t.year);
+      f.print("-");
+      f.print(t.mon);
+      f.print("-");
+      f.print(t.date);
+      f.print(" ");
+
+      f.print(t.hour);
+      f.print(":");
+      f.print(t.min);
+      f.print(":");
+      f.print(t.sec);
+      f.print(",");
+
+      f.print(_temperature);
+      f.print(",");
+      f.print(_humidity);
+      f.print(",");
+
+      f.print(_pm1);
+      f.print(",");
+      f.print(_pm25);
+      f.print(",");
+      f.print(_pm10);
+      f.print(",");
+
+      f.println(_COppm);
+
+      f.close();
+    }
+  }
+}
+
 void rtcUpdate()
 {
   uint32_t internetTime = ((uint32_t)dataBuffer[2] << 24) + ((uint32_t)dataBuffer[3] << 16) + ((uint32_t)dataBuffer[4] << 8) + dataBuffer[5];
@@ -167,14 +219,15 @@ void getMQ7data()
   {
     lastReadMQ7 = millis();
 
-    float CO = mq7.getPPM();
+    float COppm = mq7.getPPM();
 
-    debugSerial.println( CO, 1 );
+    debugSerial.println( COppm, 1 );
 
-    if (CO > 19.0)
+    if (COppm > 19.0)
     {
-      COppmSum += CO;
+      COppmSum += COppm;
       dataMQ7Count++;
+      logDataToSD(0, 0, 0, 0, 0, COppm);
     }
   }
 }
@@ -202,6 +255,8 @@ void getDHTdata()
         //uint8_t temperatureInt = temperature + 0.5;
         lcd.setCursor(10, 1); //Colum-Row
         lcd.print(temperature, 1);
+
+        logDataToSD(temperature, humidity, 0, 0, 0, 0);
       }
     }
   }
@@ -326,6 +381,8 @@ void getDustData()
     debugSerial.print(data.PM_AE_UG_2_5);
     debugSerial.print(">");
     debugSerial.println(pm25Int);
+
+    logDataToSD(0, 0, data.PM_AE_UG_1_0, data.PM_AE_UG_2_5, data.PM_AE_UG_10_0, 0);
   }
 }
 

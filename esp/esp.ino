@@ -201,39 +201,53 @@ void loop()
         if (checkQueueFlash(flashData, fileName))
         {
           char mes[256] = {0};
-          uint32_t epochTime = ((flashData[FLASH_DATA_SIZE - 4] << 24) + (flashData[FLASH_DATA_SIZE - 3] << 16) + (flashData[FLASH_DATA_SIZE - 2] << 8) + flashData[FLASH_DATA_SIZE - 1]);
 
-          if (flashData[1] < 5)
+          float tem = flashData[0] + ((float)flashData[1] / 100);
+          float humi = flashData[2] + ((float)flashData[3] / 100);
+
+          float pm1 = (flashData[4] << 8) + flashData[5] + ((float)flashData[6] / 100);
+          float pm2p5 = (flashData[7] << 8) + flashData[8] + ((float)flashData[9] / 100);
+          float pm10 = (flashData[10] << 8) + flashData[11] + ((float)flashData[12] / 100);
+
+          float CO = (flashData[13] << 8) + flashData[14] + ((float)flashData[15] / 100);
+
+          uint32_t epochTime = (flashData[16] << 24) + (flashData[17] << 16) + (flashData[18] << 8) + flashData[19];
+
+          //http://www.cplusplus.com/reference/cstdio/printf/   f or g ??
+          sprintf(mes, "{\"data\":{\"tem\":\"%f\",\"humi\":\"%f\",\"pm1\":\"%f\",\"pm2p5\":\"%f\",\"pm10\":\"%f\",\"CO\":\"%f\",\"time\":\"%d\"}}", tem, humi, pm1, pm2p5, pm10, CO, epochTime);
+
+          /* if (flashData[1] < 5)
             flashData[1] = 0;
-          else if (flashData[1] < 10)
+            else if (flashData[1] < 10)
             flashData[1] = 10;
 
-          if (flashData[3] < 5)
+            if (flashData[3] < 5)
             flashData[3] = 0;
-          else if (flashData[3] < 10)
+            else if (flashData[3] < 10)
             flashData[3] = 10;
 
-          if (flashData[6] < 5)
+            if (flashData[6] < 5)
             flashData[6] = 0;
-          else if (flashData[6] < 10)
+            else if (flashData[6] < 10)
             flashData[6] = 10;
 
-          if (flashData[9] < 5)
+            if (flashData[9] < 5)
             flashData[9] = 0;
-          else if (flashData[9] < 10)
+            else if (flashData[9] < 10)
             flashData[9] = 10;
 
-          if (flashData[12] < 5)
+            if (flashData[12] < 5)
             flashData[12] = 0;
-          else if (flashData[12] < 10)
+            else if (flashData[12] < 10)
             flashData[12] = 10;
 
-          if (flashData[15] < 5)
+            if (flashData[15] < 5)
             flashData[15] = 0;
-          else if (flashData[15] < 10)
-            flashData[15] = 10;
+            else if (flashData[15] < 10)
+            flashData[15] = 10; */
 
-          sprintf(mes, "{\"data\":{\"tem\":\"%d.%d\",\"humi\":\"%d.%d\",\"pm1\":\"%d.%d\",\"pm2p5\":\"%d.%d\",\"pm10\":\"%d.%d\",\"CO\":\"%d.%d\",\"time\":\"%d\"}}", flashData[0], flashData[1], flashData[2], flashData[3], ((flashData[4] << 8) + flashData[5]), flashData[6], ((flashData[7] << 8) + flashData[8]), flashData[9], ((flashData[10] << 8) + flashData[11]), flashData[12], ((flashData[13] << 8) + flashData[14]), flashData[15], epochTime);
+          //sprintf(mes, "{\"data\":{\"tem\":\"%d.%d\",\"humi\":\"%d.%d\",\"pm1\":\"%d.%d\",\"pm2p5\":\"%d.%d\",\"pm10\":\"%d.%d\",\"CO\":\"%d.%d\",\"time\":\"%d\"}}", flashData[0], flashData[1], flashData[2], flashData[3], ((flashData[4] << 8) + flashData[5]), flashData[6], ((flashData[7] << 8) + flashData[8]), flashData[9], ((flashData[10] << 8) + flashData[11]), flashData[12], ((flashData[13] << 8) + flashData[14]), flashData[15], epochTime);
+
           if (mqttClient.publish(topic, mes, true))
           {
             DEBUG.println(mes);
