@@ -100,27 +100,37 @@ void loop()
       DEBUG.println();
       if (debugClient) debugClient.println();
 
-
+      if (debugClient) debugClient.print("lastGetTime: ");
       if (debugClient) debugClient.println(lastGetTime);
+      if (debugClient) debugClient.print("lastRequestArduino: ");
       if (debugClient) debugClient.println(lastRequestArduino);
+
+      if (debugClient) debugClient.print("time: ");
+      if (debugClient) debugClient.println(millis());
+      DEBUG.print("time: ");
+      DEBUG.println(millis());
     }
-
-    //read dust request
-    uint8_t requestDustBuffer[PACKET_ESP_SIZE] = {66, 77, 0, 0, 0, 0, 0, 66 + 77};
-
-    DEBUG.print(" - request dust: ");
-    if (debugClient) debugClient.println(" - request dust: ");
-    for (uint8_t i = 0; i < PACKET_ESP_SIZE; i++)
+    else
     {
-      Serial.write(requestDustBuffer[i]);
-      DEBUG.print(requestDustBuffer[i]);
-      DEBUG.print(" ");
-      if (debugClient) debugClient.print(requestDustBuffer[i]);
-      if (debugClient) debugClient.print(" ");
-    }
-    DEBUG.println();
-    if (debugClient) debugClient.println();
+      //read dust request
+      uint8_t requestDustBuffer[PACKET_ESP_SIZE] = {66, 77, 0, 0, 0, 0, 0, 66 + 77};
 
+      DEBUG.print(" - request dust: ");
+      DEBUG.println(millis());
+      if (debugClient) debugClient.print(" - request dust: ");
+      if (debugClient) debugClient.println(millis());
+
+      for (uint8_t i = 0; i < PACKET_ESP_SIZE; i++)
+      {
+        Serial.write(requestDustBuffer[i]);
+        DEBUG.print(requestDustBuffer[i]);
+        DEBUG.print(" ");
+        if (debugClient) debugClient.print(requestDustBuffer[i]);
+        if (debugClient) debugClient.print(" ");
+      }
+      DEBUG.println();
+      if (debugClient) debugClient.println();
+    }
   }
   if (Serial.available() > 0)
   {
@@ -165,7 +175,7 @@ void loop()
       debugClient = debugServer.available();
       if (debugClient) debugClient.println(debugClient.localIP().toString());
     }
-    if (isGetTime || (millis() - lastGetTime > 100000))
+    if (isGetTime || (millis() - lastGetTime > 60000))
     {
       dateTime = NTPch.getNTPtime(7.0, 0);
       if (dateTime.valid)

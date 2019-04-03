@@ -50,22 +50,8 @@ void getDustData();
 void getDHTdata();
 void getMQ7data();
 void lcdInit();
-bool rtcAlarm()
-{
-  if (millis() - lastSendData > 5000)
-  {
-    Time t = rtc.getTime();
-    if (t.sec == 0)
-    {
-      lastSendData = millis();
-      return true;
-    }
-    else
-      return false;
-  }
-  else
-    return false;
-}
+bool rtcAlarm();
+void rtcUpdate();
 
 void setup()
 {
@@ -106,45 +92,19 @@ void loop()
       uint16_t check2 = (dataBuffer[PACKET_ESP_SIZE - 2] << 8) + dataBuffer[PACKET_ESP_SIZE - 1];
       if (check == check2)
       {
-        if (dataBuffer[1] == 77)
-        {
-          //read dust
-          isGetDustData = true;
-          startTimeGetDust = millis();
-        }
-        else if (dataBuffer[1] == 88)
+        if (dataBuffer[1] == 88)
         {
           //time
-          uint32_t internetTime = ((uint32_t)dataBuffer[2] << 24) + ((uint32_t)dataBuffer[3] << 16) + ((uint32_t)dataBuffer[4] << 8) + dataBuffer[5];
-          Time t = rtc.getTime();
-          uint32_t arduinoTime = rtc.getUnixTime(t);
-          debugSerial.println(internetTime);
-          debugSerial.println(arduinoTime);
-          tmElements_t t2;
-          breakTime(internetTime, t2);
-          if (internetTime > arduinoTime)
-          {
-            if (internetTime - arduinoTime > 3)
-            {
-              rtc.setDOW();
-              rtc.setTime(t2.Hour, t2.Minute, t2.Second);
-              rtc.setDate(t2.Day, t2.Month, t2.Year + 1970);
-            }
-          }
-          else
-          {
-            if (arduinoTime - internetTime > 3)
-            {
-              rtc.setDOW();
-              rtc.setTime(t2.Hour, t2.Minute, t2.Second);
-              rtc.setDate(t2.Day, t2.Month, t2.Year + 1970);
-            }
-          }
+          rtcUpdate();
         }
         else if (dataBuffer[1] == 99)
         {
           //mes
         }
+
+        //read dust
+        isGetDustData = true;
+        startTimeGetDust = millis();
       }
     }
   }
@@ -153,6 +113,52 @@ void loop()
     getDHTdata();
     getMQ7data();
   }
+}
+
+void rtcUpdate()
+{
+  uint32_t internetTime = ((uint32_t)dataBuffer[2] << 24) + ((uint32_t)dataBuffer[3] << 16) + ((uint32_t)dataBuffer[4] << 8) + dataBuffer[5];
+  Time t = rtc.getTime();
+  uint32_t arduinoTime = rtc.getUnixTime(t);
+  debugSerial.println(internetTime);
+  debugSerial.println(arduinoTime);
+  tmElements_t t2;
+  breakTime(internetTime, t2);
+  if (internetTime > arduinoTime)
+  {
+    if (internetTime - arduinoTime > 3)
+    {
+      rtc.setDOW();
+      rtc.setTime(t2.Hour, t2.Minute, t2.Second);
+      rtc.setDate(t2.Day, t2.Month, t2.Year + 1970);
+    }
+  }
+  else
+  {
+    if (arduinoTime - internetTime > 3)
+    {
+      rtc.setDOW();
+      rtc.setTime(t2.Hour, t2.Minute, t2.Second);
+      rtc.setDate(t2.Day, t2.Month, t2.Year + 1970);
+    }
+  }
+}
+
+bool rtcAlarm()
+{
+  if (millis() - lastSendData > 5000)
+  {
+    Time t = rtc.getTime();
+    if (t.sec == 0)
+    {
+      lastSendData = millis();
+      return true;
+    }
+    else
+      return false;
+  }
+  else
+    return false;
 }
 
 void getMQ7data()
@@ -313,7 +319,7 @@ void getDustData()
 
     lcd.setCursor(6, 0);
     lcd.print(pm25Char);
-    
+
     //lcd.print(" ");
     //lcd.print(dataDustCount);
 
