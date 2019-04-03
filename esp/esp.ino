@@ -2,14 +2,12 @@
 #include "./Device.h"
 #include "./Memories.h"
 
-const char* fileName = "/hieu.txt";
+const char* fileName = "/airv2.txt";
 
 uint8_t dataBuffer[PACKET_SIZE] = {0};
 uint8_t dataByteCount = 0;
 
 bool isGetTime = true;
-bool isTimeOK = true;
-bool isFixTimeError = false;
 bool isSendTimeToArduino = false;
 
 uint32_t lastMqttReconnect = 0;
@@ -43,6 +41,7 @@ void setup()
   initQueueFlash(fileName);
   debugServer.begin();
   DEBUG.println(" - setup done");
+  if (debugClient) debugClient.println(" - setup done");
 }
 
 void loop()
@@ -50,6 +49,7 @@ void loop()
   if (longPressButton())
   {
     DEBUG.println(" - long press!");
+    if (debugClient) debugClient.println(" - long press!");
     digitalWrite(PIN_LED, HIGH);
     if (WiFi.beginSmartConfig())
     {
@@ -70,6 +70,15 @@ void loop()
 
       uint8_t timeToArduinoBuffer[PACKET_ESP_SIZE] = {66, 88, 0, 0, 0, 0, 0, 0};
 
+      uint32_t internetTime = dateTime.epochTime;
+      timeToArduinoBuffer[5] = internetTime & 0xff;
+      internetTime = internetTime >> 8;
+      timeToArduinoBuffer[4] = internetTime & 0xff;
+      internetTime = internetTime >> 8;
+      timeToArduinoBuffer[3] = internetTime & 0xff;
+      internetTime = internetTime >> 8;
+      timeToArduinoBuffer[2] = internetTime & 0xff;
+
       uint16_t sum = 0;
       for (uint8_t i = 0; i < PACKET_ESP_SIZE - 2; i++)
       {
@@ -84,8 +93,11 @@ void loop()
         Serial.write(timeToArduinoBuffer[i]);
         DEBUG.print(timeToArduinoBuffer[i]);
         DEBUG.print(" ");
+        if (debugClient) debugClient.print(timeToArduinoBuffer[i]);
+        if (debugClient) debugClient.print(" ");
       }
       DEBUG.println();
+      if (debugClient) debugClient.println();
 
       if (debugClient) debugClient.println("send time to arduino");
       if (debugClient) debugClient.println(lastGetTime);
@@ -102,18 +114,24 @@ void loop()
         Serial.write(requestDustBuffer[i]);
         DEBUG.print(requestDustBuffer[i]);
         DEBUG.print(" ");
+        if (debugClient) debugClient.print(requestDustBuffer[i]);
+        if (debugClient) debugClient.print(" ");
       }
       DEBUG.println();
+      if (debugClient) debugClient.println();
     }
   }
   if (Serial.available() > 0)
   {
     dataBuffer[dataByteCount] = Serial.read();
+    if (debugClient) debugClient.print(dataBuffer[dataByteCount]);
+    if (debugClient) debugClient.print(" ");
     if (dataBuffer[0] == 66)
       dataByteCount++;
     if (dataByteCount == PACKET_SIZE)
     {
       dataByteCount = 0;
+      if (debugClient) debugClient.println();
       if (dataBuffer[1] == 77)
       {
         uint16_t check = 0;
@@ -133,6 +151,7 @@ void loop()
 
           //enQueueFlash
           enQueueFlash(saveData, fileName);
+          if (debugClient) debugClient.println("enQueueFlash");
         }
       }
     }
@@ -145,7 +164,7 @@ void loop()
       debugClient = debugServer.available();
       if (debugClient) debugClient.println(debugClient.localIP().toString());
     }
-    if (isGetTime || (millis() - lastGetTime > 100000))
+    if (isGetTime || (millis() - lastGetTime > 40000))
     {
       dateTime = NTPch.getNTPtime(7.0, 0);
       if (dateTime.valid)
@@ -173,6 +192,36 @@ void loop()
           char mes[256] = {0};
           uint32_t epochTime = ((flashData[FLASH_DATA_SIZE - 4] << 24) + (flashData[FLASH_DATA_SIZE - 3] << 16) + (flashData[FLASH_DATA_SIZE - 2] << 8) + flashData[FLASH_DATA_SIZE - 1]);
 
+          if (flashData[1] < 5)
+            flashData[1] = 0;
+          else if (flashData[1] < 10)
+            flashData[1] = 10;
+
+          if (flashData[3] < 5)
+            flashData[3] = 0;
+          else if (flashData[3] < 10)
+            flashData[3] = 10;
+
+          if (flashData[6] < 5)
+            flashData[6] = 0;
+          else if (flashData[6] < 10)
+            flashData[6] = 10;
+
+          if (flashData[9] < 5)
+            flashData[9] = 0;
+          else if (flashData[9] < 10)
+            flashData[9] = 10;
+
+          if (flashData[12] < 5)
+            flashData[12] = 0;
+          else if (flashData[12] < 10)
+            flashData[12] = 10;
+
+          if (flashData[15] < 5)
+            flashData[15] = 0;
+          else if (flashData[15] < 10)
+            flashData[15] = 10;
+
           sprintf(mes, "{\"data\":{\"tem\":\"%d.%d\",\"humi\":\"%d.%d\",\"pm1\":\"%d.%d\",\"pm2p5\":\"%d.%d\",\"pm10\":\"%d.%d\",\"CO\":\"%d.%d\",\"time\":\"%d\"}}", flashData[0], flashData[1], flashData[2], flashData[3], ((flashData[4] << 8) + flashData[5]), flashData[6], ((flashData[7] << 8) + flashData[8]), flashData[9], ((flashData[10] << 8) + flashData[11]), flashData[12], ((flashData[13] << 8) + flashData[14]), flashData[15], epochTime);
           if (mqttClient.publish(topic, mes, true))
           {
@@ -194,6 +243,7 @@ void loop()
       {
         lastMqttReconnect = millis();
         DEBUG.println(" - mqtt reconnect ");
+        if (debugClient) debugClient.println(" - mqtt reconnect ");
         mqttClient.connect(espID);
       }
     }

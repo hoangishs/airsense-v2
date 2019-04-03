@@ -5,12 +5,14 @@
 #include <PMS.h>
 #include <SPI.h>
 #include <SD.h>
-#include <DS3232RTC.h>
+#include <DS3231.h>
 #include <MQ7.h>
+#include <TimeLib.h>
 
 SoftwareSerial debugSerial = SoftwareSerial(8, 9);
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
+DS3231  rtc(SDA, SCL);
 
 #define PACKET_SIZE 24
 #define PACKET_ESP_SIZE 8
@@ -48,20 +50,35 @@ void getDustData();
 void getDHTdata();
 void getMQ7data();
 void lcdInit();
+bool rtcAlarm()
+{
+  if (millis() - lastSendData > 5000)
+  {
+    Time t = rtc.getTime();
+    if (t.sec == 0)
+    {
+      lastSendData = millis();
+      return true;
+    }
+    else
+      return false;
+  }
+  else
+    return false;
+}
 
 void setup()
 {
   debugSerial.begin(9600);
   dustSerial.begin(9600);
   Serial.begin(9600);
-  RTC.setAlarm(ALM2_EVERY_MINUTE, 0, 0, 0, 0);
-  RTC.alarm(ALARM_2);
   lcdInit();
+  rtc.begin();
 }
 
 void loop()
 {
-  if (RTC.alarm(ALARM_2))
+  if (rtcAlarm())
   {
     sendData2ESP();
   }
@@ -98,19 +115,30 @@ void loop()
         else if (dataBuffer[1] == 88)
         {
           //time
-          uint32_t internetTime = (dataBuffer[2] << 24) + (dataBuffer[3] << 16) + (dataBuffer[4] << 8) + dataBuffer[5];
-          uint32_t arduinoTime = RTC.get();
+          uint32_t internetTime = ((uint32_t)dataBuffer[2] << 24) + ((uint32_t)dataBuffer[3] << 16) + ((uint32_t)dataBuffer[4] << 8) + dataBuffer[5];
+          Time t = rtc.getTime();
+          uint32_t arduinoTime = rtc.getUnixTime(t);
           debugSerial.println(internetTime);
           debugSerial.println(arduinoTime);
+          tmElements_t t2;
+          breakTime(internetTime, t2);
           if (internetTime > arduinoTime)
           {
             if (internetTime - arduinoTime > 3)
-              RTC.set(internetTime);
+            {
+              rtc.setDOW();
+              rtc.setTime(t2.Hour, t2.Minute, t2.Second);
+              rtc.setDate(t2.Day, t2.Month, t2.Year + 1970);
+            }
           }
           else
           {
             if (arduinoTime - internetTime > 3)
-              RTC.set(internetTime);
+            {
+              rtc.setDOW();
+              rtc.setTime(t2.Hour, t2.Minute, t2.Second);
+              rtc.setDate(t2.Day, t2.Month, t2.Year + 1970);
+            }
           }
         }
         else if (dataBuffer[1] == 99)
@@ -118,7 +146,6 @@ void loop()
           //mes
         }
       }
-
     }
   }
   else
@@ -163,12 +190,12 @@ void getDHTdata()
         humiditySum += humidity;
         dataDHTCount++;
 
-        uint8_t humidityInt = humidity + 0.5;
-        lcd.setCursor(4, 1); //Colum-Row
-        lcd.print(humidityInt);
-        uint8_t temperatureInt = temperature + 0.5;
-        lcd.setCursor(12, 1); //Colum-Row
-        lcd.print(temperatureInt);
+        //uint8_t humidityInt = humidity + 0.5;
+        lcd.setCursor(2, 1); //Colum-Row
+        lcd.print(humidity, 1);
+        //uint8_t temperatureInt = temperature + 0.5;
+        lcd.setCursor(10, 1); //Colum-Row
+        lcd.print(temperature, 1);
       }
     }
   }
@@ -181,8 +208,8 @@ void sendData2ESP()
   float hum = 0;
   if (dataDHTCount != 0)
   {
-    temp = temperatureSum / dataDHTCount;
-    hum = humiditySum / dataDHTCount;
+    temp = (float)temperatureSum / dataDHTCount;
+    hum = (float)humiditySum / dataDHTCount;
     temperatureSum = 0;
     humiditySum = 0;
     dataDHTCount = 0;
@@ -192,9 +219,9 @@ void sendData2ESP()
   float pm10 = 0;
   if (dataDustCount != 0)
   {
-    pm1 = pm1Sum / dataDustCount;
-    pm25 = pm25Sum / dataDustCount;
-    pm10 = pm10Sum / dataDustCount;
+    pm1 = (float)pm1Sum / dataDustCount;
+    pm25 = (float)pm25Sum / dataDustCount;
+    pm10 = (float)pm10Sum / dataDustCount;
     pm1Sum = 0;
     pm25Sum = 0;
     pm10Sum = 0;
@@ -203,7 +230,7 @@ void sendData2ESP()
   float co = 0;
   if (dataMQ7Count != 0)
   {
-    co = COppmSum / dataMQ7Count;
+    co = (float)COppmSum / dataMQ7Count;
     COppmSum = 0;
     dataMQ7Count = 0;
   }
@@ -221,14 +248,15 @@ void sendData2ESP()
   uint16_t _pm10 = pm10;
   uint16_t _co = co;
 
-  uint8_t dot_temp = (_temp - temp) * 100;
-  uint8_t dot_hum = (_hum - hum) * 100;
-  uint8_t dot_pm1 = (_pm1 - pm1) * 100;
-  uint8_t dot_pm25 = (_pm25 - pm25) * 100;
-  uint8_t dot_pm10 = (_pm10 - pm10) * 100;
-  uint8_t dot_co = (_co - co) * 100;
+  uint8_t dot_temp = (temp - _temp) * 100;
+  uint8_t dot_hum = (hum - _hum) * 100;
+  uint8_t dot_pm1 = (pm1 - _pm1) * 100;
+  uint8_t dot_pm25 = (pm25 - _pm25) * 100;
+  uint8_t dot_pm10 = (pm10 - _pm10) * 100;
+  uint8_t dot_co = (co - _co) * 100;
 
-  uint32_t arduinoTime = RTC.get();//rtc
+  Time t = rtc.getTime();
+  uint32_t arduinoTime = rtc.getUnixTime(t);
 
   uint8_t dataToEspBuffer[PACKET_SIZE] = {66, 77, _temp, dot_temp, _hum, dot_hum, (_pm1 >> 8), (_pm1 & 0xff), dot_pm1, (_pm25 >> 8), (_pm25 & 0xff), dot_pm25, (_pm10 >> 8), (_pm10 & 0xff), dot_pm10, (_co >> 8), (_co & 0xff), dot_co, 0, 0, 0, 0, 0, 0};
 
@@ -298,7 +326,7 @@ void lcdInit()
   lcd.setCursor(0, 0); //Colum-Row
   lcd.print("PM2.5:---- ug/m3");
   lcd.setCursor(0, 1); //Colum-Row
-  lcd.print("Hum:--%");
+  lcd.print("H:----%");
   lcd.setCursor(8, 1); //Colum-Row
-  lcd.print("Tem:--*C");
+  lcd.print("T:----*C");
 }
