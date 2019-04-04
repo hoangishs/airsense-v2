@@ -214,7 +214,7 @@ void loop()
           uint32_t epochTime = (flashData[16] << 24) + (flashData[17] << 16) + (flashData[18] << 8) + flashData[19];
 
           //http://www.cplusplus.com/reference/cstdio/printf/   f or g ??
-          sprintf(mes, "{\"data\":{\"tem\":\"%f\",\"humi\":\"%f\",\"pm1\":\"%f\",\"pm2p5\":\"%f\",\"pm10\":\"%f\",\"CO\":\"%f\",\"time\":\"%d\"}}", tem, humi, pm1, pm2p5, pm10, CO, epochTime);
+          sprintf(mes, "{\"data\":{\"tem\":\"%g\",\"humi\":\"%g\",\"pm1\":\"%g\",\"pm2p5\":\"%g\",\"pm10\":\"%g\",\"CO\":\"%g\",\"time\":\"%d\"}}", tem, humi, pm1, pm2p5, pm10, CO, epochTime);
 
           /* if (flashData[1] < 5)
             flashData[1] = 0;

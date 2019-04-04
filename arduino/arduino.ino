@@ -126,7 +126,7 @@ void logDataToSD(float _temperature, float _humidity, uint16_t _pm1, uint16_t _p
   {
     char fileName[12];
     Time t = rtc.getTime();
-    sprintf(fileName, "%2d-%2d-%2d.txt", t.date, t.mon, t.year - 2000);
+    sprintf(fileName, "%d-%d-%d.txt", t.date, t.mon, t.year - 2000);
 
     debugSerial.println(fileName);
 
@@ -223,7 +223,7 @@ void getMQ7data()
 
     debugSerial.println( COppm, 1 );
 
-    if (COppm > 19.0)
+    if (COppm > 20.0 && COppm < 2000.0)
     {
       COppmSum += COppm;
       dataMQ7Count++;
