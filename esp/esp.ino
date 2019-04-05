@@ -1,6 +1,7 @@
 #include "./Communication.h"
 #include "./Device.h"
 #include "./Memories.h"
+#include <ESP8266Ping.h>
 
 const char* fileName = "/airv2.txt";
 
@@ -9,7 +10,9 @@ uint8_t dataByteCount = 0;
 
 bool isGetTime = true;
 bool isSendTimeToArduino = false;
+bool isInternet = false;
 
+uint32_t lastPing = 0;
 uint32_t lastMqttReconnect = 0;
 uint32_t lastRequestArduino = 0;
 uint32_t lastGetTime = 0;
@@ -161,8 +164,17 @@ void loop()
           }
 
           //enQueueFlash
-          enQueueFlash(saveData, fileName);
-          if (debugClient) debugClient.println("enQueueFlash");
+          if (enQueueFlash(saveData, fileName))
+            if (debugClient) debugClient.println("enQueueFlash");
+          uint32_t front = 0;
+          uint32_t rear = 0;
+          if (viewFlash(&front, &rear, fileName))
+          {
+            if (debugClient) debugClient.print("front: ");
+            if (debugClient) debugClient.println(front);
+            if (debugClient) debugClient.print("rear: ");
+            if (debugClient) debugClient.println(rear);
+          }
         }
       }
     }
@@ -170,106 +182,99 @@ void loop()
   else if (WiFi.status() == WL_CONNECTED)
   {
     digitalWrite(PIN_LED, LOW);
+
     if (!debugClient)
     {
       debugClient = debugServer.available();
       if (debugClient) debugClient.println(debugClient.localIP().toString());
     }
-    if (isGetTime || (millis() - lastGetTime > 60000))
+
+    if (millis() - lastPing > 10000)
     {
-      dateTime = NTPch.getNTPtime(7.0, 0);
-      if (dateTime.valid)
+      lastPing = millis();
+      if (Ping.ping("www.google.com", 1))
       {
-        //if got time
-        isGetTime = false;
-        isSendTimeToArduino = true;
-        lastGetTime = millis();
-        if (debugClient) debugClient.println("time ok");
-        if (debugClient) debugClient.println(dateTime.hour);
-        if (debugClient) debugClient.println(dateTime.minute);
-        if (debugClient) debugClient.println(dateTime.second);
+        isInternet = true;
+        if (debugClient) debugClient.println("internet ok");
+      } else
+      {
+        isInternet = false;
+        if (debugClient) debugClient.println("no internet");
       }
     }
-    else if ((isQueueFlashEmpty(fileName) == false))
+
+    if (isInternet)
     {
-      //if queue is not empty, publish data to server
-      if (mqttClient.connected())
+      if (isGetTime || (millis() - lastGetTime > 60000))
       {
-        DEBUG.print(" - publish:.. ");
-        uint8_t flashData[FLASH_DATA_SIZE];
-
-        if (checkQueueFlash(flashData, fileName))
+        dateTime = NTPch.getNTPtime(7.0, 0);
+        if (dateTime.valid)
         {
-          char mes[256] = {0};
+          //if got time
+          isGetTime = false;
+          isSendTimeToArduino = true;
+          lastGetTime = millis();
 
-          float tem = flashData[0] + ((float)flashData[1] / 100);
-          float humi = flashData[2] + ((float)flashData[3] / 100);
-
-          float pm1 = (flashData[4] << 8) + flashData[5] + ((float)flashData[6] / 100);
-          float pm2p5 = (flashData[7] << 8) + flashData[8] + ((float)flashData[9] / 100);
-          float pm10 = (flashData[10] << 8) + flashData[11] + ((float)flashData[12] / 100);
-
-          float CO = (flashData[13] << 8) + flashData[14] + ((float)flashData[15] / 100);
-
-          uint32_t epochTime = (flashData[16] << 24) + (flashData[17] << 16) + (flashData[18] << 8) + flashData[19];
-
-          //http://www.cplusplus.com/reference/cstdio/printf/   f or g ??
-          sprintf(mes, "{\"data\":{\"tem\":\"%g\",\"humi\":\"%g\",\"pm1\":\"%g\",\"pm2p5\":\"%g\",\"pm10\":\"%g\",\"CO\":\"%g\",\"time\":\"%d\"}}", tem, humi, pm1, pm2p5, pm10, CO, epochTime);
-
-          /* if (flashData[1] < 5)
-            flashData[1] = 0;
-            else if (flashData[1] < 10)
-            flashData[1] = 10;
-
-            if (flashData[3] < 5)
-            flashData[3] = 0;
-            else if (flashData[3] < 10)
-            flashData[3] = 10;
-
-            if (flashData[6] < 5)
-            flashData[6] = 0;
-            else if (flashData[6] < 10)
-            flashData[6] = 10;
-
-            if (flashData[9] < 5)
-            flashData[9] = 0;
-            else if (flashData[9] < 10)
-            flashData[9] = 10;
-
-            if (flashData[12] < 5)
-            flashData[12] = 0;
-            else if (flashData[12] < 10)
-            flashData[12] = 10;
-
-            if (flashData[15] < 5)
-            flashData[15] = 0;
-            else if (flashData[15] < 10)
-            flashData[15] = 10; */
-
-          //sprintf(mes, "{\"data\":{\"tem\":\"%d.%d\",\"humi\":\"%d.%d\",\"pm1\":\"%d.%d\",\"pm2p5\":\"%d.%d\",\"pm10\":\"%d.%d\",\"CO\":\"%d.%d\",\"time\":\"%d\"}}", flashData[0], flashData[1], flashData[2], flashData[3], ((flashData[4] << 8) + flashData[5]), flashData[6], ((flashData[7] << 8) + flashData[8]), flashData[9], ((flashData[10] << 8) + flashData[11]), flashData[12], ((flashData[13] << 8) + flashData[14]), flashData[15], epochTime);
-
-          if (mqttClient.publish(topic, mes, true))
-          {
-            DEBUG.println(mes);
-            deQueueFlash(fileName);
-            if (debugClient) debugClient.println(mes);
-            uint32_t front = 0;
-            uint32_t rear = 0;
-            if (viewFlash(&front, &rear, fileName))
-            {
-              if (debugClient) debugClient.println(front);
-              if (debugClient) debugClient.println(rear);
-            }
-          }
-          mqttClient.loop();
+          if (debugClient) debugClient.print("time ok: ");
+          if (debugClient) debugClient.print(dateTime.hour);
+          if (debugClient) debugClient.print(":");
+          if (debugClient) debugClient.print(dateTime.minute);
+          if (debugClient) debugClient.print(":");
+          if (debugClient) debugClient.println(dateTime.second);
         }
       }
-      else if (millis() - lastMqttReconnect > 1000)
+      else if ((isQueueFlashEmpty(fileName) == false))
       {
-        lastMqttReconnect = millis();
-        DEBUG.println(" - mqtt reconnect ");
-        if (debugClient) debugClient.println(" - mqtt reconnect ");
-        mqttClient.connect(espID);
+        //if queue is not empty, publish data to server
+        if (debugClient) debugClient.println(" - queue is not empty");
+        if (mqttClient.connected())
+        {
+          DEBUG.print(" - publish:.. ");
+          if (debugClient) debugClient.print(" - publish:.. ");
+          uint8_t flashData[FLASH_DATA_SIZE];
+
+          if (checkQueueFlash(flashData, fileName))
+          {
+            char mes[256] = {0};
+
+            float tem = flashData[0] + ((float)flashData[1] / 100);
+            float humi = flashData[2] + ((float)flashData[3] / 100);
+
+            float pm1 = (flashData[4] << 8) + flashData[5] + ((float)flashData[6] / 100);
+            float pm2p5 = (flashData[7] << 8) + flashData[8] + ((float)flashData[9] / 100);
+            float pm10 = (flashData[10] << 8) + flashData[11] + ((float)flashData[12] / 100);
+
+            float CO = (flashData[13] << 8) + flashData[14] + ((float)flashData[15] / 100);
+
+            uint32_t epochTime = (flashData[16] << 24) + (flashData[17] << 16) + (flashData[18] << 8) + flashData[19];
+
+            sprintf(mes, "{\"data\":{\"tem\":\"%g\",\"humi\":\"%g\",\"pm1\":\"%g\",\"pm2p5\":\"%g\",\"pm10\":\"%g\",\"CO\":\"%g\",\"time\":\"%d\"}}", tem, humi, pm1, pm2p5, pm10, CO, epochTime);
+
+            if (mqttClient.publish(topic, mes, true))
+            {
+              DEBUG.println(mes);
+              deQueueFlash(fileName);
+              if (debugClient) debugClient.println(mes);
+              uint32_t front = 0;
+              uint32_t rear = 0;
+              if (viewFlash(&front, &rear, fileName))
+              {
+                if (debugClient) debugClient.print("front: ");
+                if (debugClient) debugClient.println(front);
+                if (debugClient) debugClient.print("rear: ");
+                if (debugClient) debugClient.println(rear);
+              }
+            }
+            mqttClient.loop();
+          }
+        }
+        else if (millis() - lastMqttReconnect > 1000)
+        {
+          lastMqttReconnect = millis();
+          DEBUG.println(" - mqtt reconnect ");
+          if (debugClient) debugClient.println(" - mqtt reconnect ");
+          mqttClient.connect(espID);
+        }
       }
     }
   }
