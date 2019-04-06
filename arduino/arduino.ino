@@ -11,6 +11,8 @@
 
 SoftwareSerial debugSerial = SoftwareSerial(8, 9);
 
+bool isBlink = true;
+uint32_t lastBlink = 0;
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 DS3231  rtc(SDA, SCL);
 
@@ -54,13 +56,66 @@ void getMQ7data();
 void lcdInit();
 bool rtcAlarm();
 void rtcUpdate();
-void logDataToSD(float _temperature, float _humidity, uint16_t _pm1, uint16_t _pm25, uint16_t _pm10, float _COppm);
+void logDataToSD(float _temperature, float _humidity, float _pm1, float _pm25, float _pm10, float _COppm);
+void rgbInit(const char RED_PIN, const char GREEN_PIN, const char BLUE_PIN)
+{
+  pinMode(RED_PIN, OUTPUT);
+  pinMode(GREEN_PIN, OUTPUT);
+  pinMode(BLUE_PIN, OUTPUT);
+
+  digitalWrite(RED_PIN, HIGH);
+  digitalWrite(GREEN_PIN, HIGH);
+  digitalWrite(BLUE_PIN, HIGH);
+}
+
+void rgbShow(const char RED_PIN, const char GREEN_PIN, const char BLUE_PIN, int Value)
+{
+  int redPWM;
+  int greenPWM;
+  int bluePWM;
+
+  if (Value < 12) {
+    redPWM = 0;  // Green (0-255-0)
+    greenPWM = 255;
+    bluePWM = 0;
+  }
+  else if (Value >= 12 && Value < 35) {
+    redPWM = 255;  //Yellow (255-255-0)
+    greenPWM = 255;
+    bluePWM = 0;
+  }
+  else if (Value >= 35 && Value < 55) {
+    redPWM = 255;  //Orange	(255-165-0)
+    greenPWM = 165;
+    bluePWM = 0;
+  }
+  else if (Value >= 55 && Value < 150) {
+    redPWM = 255;  //Red	(255-0-0)
+    greenPWM = 0;
+    bluePWM = 0;
+  }
+  else if (Value >= 150 && Value < 250) {
+    redPWM = 128;  //Purple (128-0-128)
+    greenPWM = 0;
+    bluePWM = 128;
+  }
+  else {
+    redPWM = 128;  //Marron (128,0,0)
+    greenPWM = 255;
+    bluePWM = 0;
+  }
+
+  analogWrite(RED_PIN, redPWM);
+  analogWrite(BLUE_PIN, bluePWM);
+  analogWrite(GREEN_PIN, greenPWM);
+}
 
 void setup()
 {
   debugSerial.begin(9600);
   dustSerial.begin(9600);
   Serial.begin(9600);
+  rgbInit(A2, A1, A3);
   lcdInit();
   rtc.begin();
   if (SD.begin(10))
@@ -69,6 +124,20 @@ void setup()
 
 void loop()
 {
+  if (millis() - lastBlink > 1000)
+  {
+    lastBlink = millis();
+    Time t3 = rtc.getTime();
+    lcd.setCursor(0, 0);
+    lcd.print(t3.hour);
+    isBlink = !isBlink;
+    if (isBlink)
+      lcd.print(":");
+    else
+      lcd.print(" ");
+    lcd.setCursor(3, 0);
+    lcd.print(t3.min);
+  }
   if (rtcAlarm())
   {
     sendData2ESP();
@@ -120,12 +189,13 @@ void loop()
   }
 }
 
-void logDataToSD(float _temperature, float _humidity, uint16_t _pm1, uint16_t _pm25, uint16_t _pm10, float _COppm)
+void logDataToSD(float _temperature, float _humidity, float _pm1, float _pm25, float _pm10, float _COppm)
 {
   if (isSD)
   {
     char fileName[12];
     Time t = rtc.getTime();
+
     sprintf(fileName, "%d-%d-%d.txt", t.date, t.mon, t.year - 2000);
 
     debugSerial.println(fileName);
@@ -221,13 +291,17 @@ void getMQ7data()
 
     float COppm = mq7.getPPM();
 
+
     debugSerial.println( COppm, 1 );
 
     if (COppm > 20.0 && COppm < 2000.0)
     {
       COppmSum += COppm;
       dataMQ7Count++;
-      logDataToSD(0, 0, 0, 0, 0, COppm);
+      //logDataToSD(0, 0, 0, 0, 0, COppm);
+      uint16_t COppmInt = COppm + 0.5;
+      lcd.setCursor(13, 1);
+      lcd.print(COppmInt);
     }
   }
 }
@@ -249,14 +323,14 @@ void getDHTdata()
         humiditySum += humidity;
         dataDHTCount++;
 
-        //uint8_t humidityInt = humidity + 0.5;
+        uint8_t humidityInt = humidity + 0.5;
         lcd.setCursor(2, 1); //Colum-Row
-        lcd.print(humidity, 1);
-        //uint8_t temperatureInt = temperature + 0.5;
-        lcd.setCursor(10, 1); //Colum-Row
-        lcd.print(temperature, 1);
+        lcd.print(humidityInt);
+        uint8_t temperatureInt = temperature + 0.5;
+        lcd.setCursor(7, 1); //Colum-Row
+        lcd.print(temperatureInt);
 
-        logDataToSD(temperature, humidity, 0, 0, 0, 0);
+        //logDataToSD(temperature, humidity, 0, 0, 0, 0);
       }
     }
   }
@@ -295,6 +369,9 @@ void sendData2ESP()
     COppmSum = 0;
     dataMQ7Count = 0;
   }
+
+  //sd
+  logDataToSD(temp, hum, pm1, pm25, pm10, co);
 
   // cong thuc cua airbeam
   //        pm1=0.66776*pow(pm1,1.1);
@@ -370,9 +447,11 @@ void getDustData()
     pm25Float = 1.33 * pow(pm25Float, 0.85); //cong thuc cua airbeam
     uint16_t pm25Int = pm25Float + 0.5;
 
+    rgbShow(A2, A1, A3, pm25Int);
+
     sprintf(pm25Char, "%4d", pm25Int);
 
-    lcd.setCursor(6, 0);
+    lcd.setCursor(12, 0);
     lcd.print(pm25Char);
 
     //lcd.print(" ");
@@ -382,17 +461,20 @@ void getDustData()
     debugSerial.print(">");
     debugSerial.println(pm25Int);
 
-    logDataToSD(0, 0, data.PM_AE_UG_1_0, data.PM_AE_UG_2_5, data.PM_AE_UG_10_0, 0);
+    //logDataToSD(0, 0, data.PM_AE_UG_1_0, data.PM_AE_UG_2_5, data.PM_AE_UG_10_0, 0);
   }
 }
 
 void lcdInit()
 {
   lcd.begin();
-  lcd.setCursor(0, 0); //Colum-Row
-  lcd.print("PM2.5:---- ug/m3");
-  lcd.setCursor(0, 1); //Colum-Row
-  lcd.print("H:----%");
-  lcd.setCursor(8, 1); //Colum-Row
-  lcd.print("T:----*C");
+  lcd.setCursor(0, 0);    lcd.print("--:-- PM2.5:----");
+  lcd.setCursor(0, 1);   lcd.print("T:-- H:-- CO:---");
+
+  //  lcd.setCursor(0, 0); //Colum-Row
+  //  lcd.print("PM2.5:---- ug/m3");
+  //  lcd.setCursor(0, 1); //Colum-Row
+  //  lcd.print("H:----%");
+  //  lcd.setCursor(8, 1); //Colum-Row
+  //  lcd.print("T:----*C");
 }

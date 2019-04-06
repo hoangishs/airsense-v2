@@ -7,7 +7,7 @@
 #define PACKET_ESP_SIZE 8
 
 #define PIN_BUTTON 0
-#define PIN_LED 14
+#define PIN_LED 12
 
 #define FLASH_COUNT_SIZE 3
 #define FLASH_DATA_SIZE 20
