@@ -102,7 +102,7 @@ void rgbShow(const char RED_PIN, const char GREEN_PIN, const char BLUE_PIN, int 
   else {
     redPWM = 128;  //Marron (128,0,0)
     greenPWM = 255;
-    bluePWM = 0;
+    bluePWM = 0;//
   }
 
   analogWrite(RED_PIN, redPWM);

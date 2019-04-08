@@ -1,6 +1,9 @@
 #include "./Device.h"
 
 uint32_t lastPressButton = 0;
+uint32_t lastBlinkLed = 0;
+
+bool ledState = true;
 
 bool longPressButton()
 {
@@ -15,4 +18,12 @@ bool longPressButton()
   return false;
 }
 
-
+void blinkLed(uint32_t _milisecond)
+{
+  if (millis() - lastBlinkLed > _milisecond)
+  {
+    lastBlinkLed = millis();
+    ledState = !ledState;
+    digitalWrite(PIN_LED, ledState);
+  }
+}

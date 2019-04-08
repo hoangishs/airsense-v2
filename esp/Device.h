@@ -8,5 +8,6 @@
 #include <time.h>
 
 bool longPressButton();
+void blinkLed(uint32_t _milisecond);
 
 #endif

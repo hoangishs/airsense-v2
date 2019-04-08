@@ -11,6 +11,7 @@ uint8_t dataByteCount = 0;
 bool isGetTime = true;
 bool isSendTimeToArduino = false;
 bool isInternet = false;
+bool isBlinkLed = true;
 
 uint32_t lastPing = 0;
 uint32_t lastMqttReconnect = 0;
@@ -49,13 +50,16 @@ void setup()
 
 void loop()
 {
+  if (isBlinkLed)
+    blinkLed(5000);
   if (longPressButton())
   {
     DEBUG.println(" - long press!");
     if (debugClient) debugClient.println(" - long press!");
-    digitalWrite(PIN_LED, HIGH);
     if (WiFi.beginSmartConfig())
     {
+      digitalWrite(PIN_LED, HIGH);
+      isBlinkLed = false;
       DEBUG.println(" -------- start config wifi");
     }
   }
@@ -181,8 +185,9 @@ void loop()
   }
   else if (WiFi.status() == WL_CONNECTED)
   {
-    digitalWrite(PIN_LED, LOW);
-
+    isBlinkLed = true;
+    if (isBlinkLed)
+      blinkLed(2000);
     if (!debugClient)
     {
       debugClient = debugServer.available();
@@ -205,6 +210,8 @@ void loop()
 
     if (isInternet)
     {
+      if (isBlinkLed)
+        blinkLed(1000);
       if (isGetTime || (millis() - lastGetTime > 60000))
       {
         dateTime = NTPch.getNTPtime(7.0, 0);
