@@ -128,15 +128,19 @@ void loop()
   {
     lastBlink = millis();
     Time t3 = rtc.getTime();
+    char hourChar[2];
+    sprintf(hourChar, "%2d", t3.hour);
     lcd.setCursor(0, 0);
-    lcd.print(t3.hour);
+    lcd.print(hourChar);
     isBlink = !isBlink;
     if (isBlink)
       lcd.print(":");
     else
       lcd.print(" ");
+    char minChar[2];
+    sprintf(minChar, "%2d", t3.min);
     lcd.setCursor(3, 0);
-    lcd.print(t3.min);
+    lcd.print(minChar);
   }
   if (rtcAlarm())
   {
