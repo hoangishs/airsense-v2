@@ -49,7 +49,7 @@ uint8_t dataMQ7Count = 0;
 
 bool isSD = false;
 
-#define RED_PIN A0
+#define RED_PIN A1
 #define GREEN_PIN A2
 #define BLUE_PIN A3
 bool isOrange = false;
@@ -319,17 +319,16 @@ void getMQ7data()
 
     float COppm = mq7.getPPM();
 
-
     debugSerial.println( COppm, 1 );
 
     if (COppm > 20.0 && COppm < 2000.0)
     {
       COppmSum += COppm;
       dataMQ7Count++;
-      //logDataToSD(0, 0, 0, 0, 0, COppm);
-      /* uint16_t COppmInt = COppm + 0.5;
-        lcd.setCursor(13, 1);
-        lcd.print(COppmInt); */
+      logDataToSD(0, 0, 0, 0, 0, COppm);
+      uint16_t COppmInt = COppm + 0.5;
+      lcd.setCursor(13, 1);
+      lcd.print(COppmInt);
     }
   }
 }
@@ -351,12 +350,12 @@ void getDHTdata()
         humiditySum += humidity;
         dataDHTCount++;
 
-        /* uint8_t humidityInt = humidity + 0.5;
-          lcd.setCursor(7, 1); //Colum-Row
-          lcd.print(humidityInt);
-          uint8_t temperatureInt = temperature + 0.5;
-          lcd.setCursor(2, 1); //Colum-Row
-          lcd.print(temperatureInt); */
+        uint8_t humidityInt = humidity + 0.5;
+        lcd.setCursor(7, 1); //Colum-Row
+        lcd.print(humidityInt);
+        uint8_t temperatureInt = temperature + 0.5;
+        lcd.setCursor(2, 1); //Colum-Row
+        lcd.print(temperatureInt);
 
         //logDataToSD(temperature, humidity, 0, 0, 0, 0);
       }
@@ -403,29 +402,30 @@ void sendData2ESP()
 
   //lcd
   //dht
-  uint8_t humidityInt = hum + 0.5;
-  lcd.setCursor(7, 1); //Colum-Row
-  lcd.print(humidityInt);
-  uint8_t temperatureInt = temp + 0.5;
-  lcd.setCursor(2, 1); //Colum-Row
-  lcd.print(temperatureInt);
-  //co
-  uint16_t COppmInt = co + 0.5;
-  lcd.setCursor(13, 1);
-  lcd.print(COppmInt);
-  //dust
-  char pm25Char[4];
+  /* uint8_t humidityInt = hum + 0.5;
+    lcd.setCursor(7, 1); //Colum-Row
+    lcd.print(humidityInt);
+    uint8_t temperatureInt = temp + 0.5;
+    lcd.setCursor(2, 1); //Colum-Row
+    lcd.print(temperatureInt);
+    //co
+    uint16_t COppmInt = co + 0.5;
+    lcd.setCursor(13, 1);
+    lcd.print(COppmInt);
+    //dust
+    char pm25Char[4];
 
-  float pm25Float = pm25;
-  pm25Float = 1.33 * pow(pm25Float, 0.85); //cong thuc cua airbeam
-  uint16_t pm25Int = pm25Float + 0.5;
+    float pm25Float = pm25;
+    pm25Float = 1.33 * pow(pm25Float, 0.85); //cong thuc cua airbeam
+    uint16_t pm25Int = pm25Float + 0.5;
 
-  rgbShow(pm25Int);
+    rgbShow(pm25Int);
 
-  sprintf(pm25Char, "%4d", pm25Int);
+    sprintf(pm25Char, "%4d", pm25Int);
 
-  lcd.setCursor(12, 0);
-  lcd.print(pm25Char);
+    lcd.setCursor(12, 0);
+    lcd.print(pm25Char); */
+
   // cong thuc cua airbeam
   //        pm1=0.66776*pow(pm1,1.1);
   //        pm25=1.33*pow(pm25,0.85);
@@ -494,18 +494,18 @@ void getDustData()
     pm10Sum += data.PM_AE_UG_10_0;
     dataDustCount++;
 
-    /* char pm25Char[4];
+    char pm25Char[4];
 
-      float pm25Float = data.PM_AE_UG_2_5;
-      pm25Float = 1.33 * pow(pm25Float, 0.85); //cong thuc cua airbeam
-      uint16_t pm25Int = pm25Float + 0.5;
+    float pm25Float = data.PM_AE_UG_2_5;
+    pm25Float = 1.33 * pow(pm25Float, 0.85); //cong thuc cua airbeam
+    uint16_t pm25Int = pm25Float + 0.5;
 
-      rgbShow(pm25Int);
+    rgbShow(pm25Int);
 
-      sprintf(pm25Char, "%4d", pm25Int);
+    sprintf(pm25Char, "%4d", pm25Int);
 
-      lcd.setCursor(12, 0);
-      lcd.print(pm25Char); */
+    lcd.setCursor(12, 0);
+    lcd.print(pm25Char);
 
     //lcd.print(" ");
     //lcd.print(dataDustCount);
