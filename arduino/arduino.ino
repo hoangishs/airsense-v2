@@ -32,9 +32,10 @@ float humidity;
 uint8_t dataDHTCount = 0;
 
 SoftwareSerial dustSerial =  SoftwareSerial(4, 5); // RX, TX
-uint8_t dust_buff[32]={0}; // Array dust data
-uint8_t dust_i=0;
-
+uint8_t dust_buff[32] = {0}; // Array dust data
+uint8_t dust_i = 0;
+uint32_t pmSmallSum = 0;
+uint32_t pmLargeSum = 0;
 uint32_t startTimeGetDust = 0;
 bool isGetDustData = false;
 uint32_t pm1Sum = 0;
@@ -62,7 +63,7 @@ void getMQ7data();
 void lcdInit();
 bool rtcAlarm();
 void rtcUpdate();
-void logDataToSD(float _temperature, float _humidity, float _pm1, float _pm25, float _pm10, float _COppm);
+void logDataToSD(float _temperature, float _humidity, float _pm1, float _pm25, float _pm10, float _COppm, float _pmSmall, float _pmLarge);
 void rgbInit();
 void rgbShow(uint16_t value);
 void updateTimeToLcd();
@@ -217,7 +218,7 @@ void rgbShow(uint16_t value)
   }
 }
 
-void logDataToSD(float _temperature, float _humidity, float _pm1, float _pm25, float _pm10, float _COppm)
+void logDataToSD(float _temperature, float _humidity, float _pm1, float _pm25, float _pm10, float _COppm, float _pmSmall, float _pmLarge)
 {
   if (isSD)
   {
@@ -256,6 +257,11 @@ void logDataToSD(float _temperature, float _humidity, float _pm1, float _pm25, f
       f.print(_pm25);
       f.print(",");
       f.print(_pm10);
+      f.print(",");
+
+      f.print(_pmSmall);
+      f.print(",");
+      f.print(_pmLarge);
       f.print(",");
 
       f.println(_COppm);
@@ -325,7 +331,7 @@ void getMQ7data()
     {
       COppmSum += COppm;
       dataMQ7Count++;
-      logDataToSD(0, 0, 0, 0, 0, COppm);
+      //logDataToSD(0, 0, 0, 0, 0, COppm);
       uint16_t COppmInt = COppm + 0.5;
       lcd.setCursor(13, 1);
       lcd.print(COppmInt);
@@ -379,14 +385,20 @@ void sendData2ESP()
   float pm1 = 0;
   float pm25 = 0;
   float pm10 = 0;
+  float pmSmall = 0;
+  float pmLarge = 0;
   if (dataDustCount != 0)
   {
     pm1 = (float)pm1Sum / dataDustCount;
     pm25 = (float)pm25Sum / dataDustCount;
     pm10 = (float)pm10Sum / dataDustCount;
+    pmSmall = (float)pmSmallSum / dataDustCount;
+    pmLarge = (float)pmLargeSum / dataDustCount;
     pm1Sum = 0;
     pm25Sum = 0;
     pm10Sum = 0;
+    pmSmallSum = 0;
+    pmLargeSum = 0;
     dataDustCount = 0;
   }
   float co = 0;
@@ -398,7 +410,7 @@ void sendData2ESP()
   }
 
   //sd
-  logDataToSD(temp, hum, pm1, pm25, pm10, co);
+  logDataToSD(temp, hum, pm1, pm25, pm10, co, pmSmall, pmLarge);
 
   //lcd
   //dht
@@ -481,46 +493,48 @@ void sendData2ESP()
 
 void getDustData()
 {
-        if(dustSerial.available())
+  if (dustSerial.available())
+  {
+    dust_buff[dust_i] = dustSerial.read();
+    if (dust_buff[0] == 66) dust_i++;
+    if (dust_i == 32)
+    {
+      dust_i = 0;
+      if (dust_buff[1] == 77)
+      {
+        //checksum
+        uint16_t check = 0;
+        for (uint8_t i = 0; i < 30; i++)
         {
-            dust_buff[dust_i]=dustSerial.read();
-            if(dust_buff[0]==66) dust_i++;
-            if(dust_i==32)
-            {
-                dust_i=0;
-                if(dust_buff[1]==77)
-                {
-                    //checksum
-                    uint16_t check=0;
-                    for(uint8_t i=0;i<30;i++)
-                    {
-                        check+=dust_buff[i];
-                    }
-                    uint16_t check2=(dust_buff[30]<<8)+dust_buff[31];
-                    if(check==check2)
-                    {
-                      isGetDustData = false;
-                      pm1Sum += (dust_buff[10]<<8)+dust_buff[11];
-    pm25Sum += (dust_buff[12]<<8)+dust_buff[13];
-    pm10Sum += (dust_buff[14]<<8)+dust_buff[15];
-    dataDustCount++;
-
-    char pm25Char[4];
-
-    float pm25Float = (dust_buff[12]<<8)+dust_buff[13];
-    pm25Float = 1.33 * pow(pm25Float, 0.85); //cong thuc cua airbeam
-    uint16_t pm25Int = pm25Float + 0.5;
-
-    rgbShow(pm25Int);
-
-    sprintf(pm25Char, "%4d", pm25Int);
-
-    lcd.setCursor(12, 0);
-    lcd.print(pm25Char);
-                    }
-                }
-            }
+          check += dust_buff[i];
         }
+        uint16_t check2 = (dust_buff[30] << 8) + dust_buff[31];
+        if (check == check2)
+        {
+          isGetDustData = false;
+          pm1Sum += (dust_buff[10] << 8) + dust_buff[11];
+          pm25Sum += (dust_buff[12] << 8) + dust_buff[13];
+          pm10Sum += (dust_buff[14] << 8) + dust_buff[15];
+          pmSmallSum += (dust_buff[18] << 8) + dust_buff[19];
+          pmLargeSum += (dust_buff[22] << 8) + dust_buff[23];
+          dataDustCount++;
+
+          char pm25Char[4];
+
+          float pm25Float = (dust_buff[12] << 8) + dust_buff[13];
+          pm25Float = 1.33 * pow(pm25Float, 0.85); //cong thuc cua airbeam
+          uint16_t pm25Int = pm25Float + 0.5;
+
+          rgbShow(pm25Int);
+
+          sprintf(pm25Char, "%4d", pm25Int);
+
+          lcd.setCursor(12, 0);
+          lcd.print(pm25Char);
+        }
+      }
+    }
+  }
 }
 
 void lcdInit()
