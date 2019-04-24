@@ -2,7 +2,6 @@
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <dht_nonblocking.h>
-#include <PMS.h>
 #include <SPI.h>
 #include <SD.h>
 #include <DS3231.h>
@@ -33,8 +32,9 @@ float humidity;
 uint8_t dataDHTCount = 0;
 
 SoftwareSerial dustSerial =  SoftwareSerial(4, 5); // RX, TX
-PMS pms(dustSerial);
-PMS::DATA data;
+uint8_t dust_buff[32]={0}; // Array dust data
+uint8_t dust_i=0;
+
 uint32_t startTimeGetDust = 0;
 bool isGetDustData = false;
 uint32_t pm1Sum = 0;
@@ -481,22 +481,33 @@ void sendData2ESP()
 
 void getDustData()
 {
-  if (pms.read(data))
-  {
-    isGetDustData = false;
-
-    debugSerial.println(data.PM_AE_UG_1_0);
-    debugSerial.println(data.PM_AE_UG_2_5);
-    debugSerial.println(data.PM_AE_UG_10_0);
-
-    pm1Sum += data.PM_AE_UG_1_0;
-    pm25Sum += data.PM_AE_UG_2_5;
-    pm10Sum += data.PM_AE_UG_10_0;
+        if(dustSerial.available())
+        {
+            dust_buff[dust_i]=dustSerial.read();
+            if(dust_buff[0]==66) dust_i++;
+            if(dust_i==32)
+            {
+                dust_i=0;
+                if(dust_buff[1]==77)
+                {
+                    //checksum
+                    uint16_t check=0;
+                    for(uint8_t i=0;i<30;i++)
+                    {
+                        check+=dust_buff[i];
+                    }
+                    uint16_t check2=(dust_buff[30]<<8)+dust_buff[31];
+                    if(check==check2)
+                    {
+                      isGetDustData = false;
+                      pm1Sum += (dust_buff[10]<<8)+dust_buff[11];
+    pm25Sum += (dust_buff[12]<<8)+dust_buff[13];
+    pm10Sum += (dust_buff[14]<<8)+dust_buff[15];
     dataDustCount++;
 
     char pm25Char[4];
 
-    float pm25Float = data.PM_AE_UG_2_5;
+    float pm25Float = (dust_buff[12]<<8)+dust_buff[13];
     pm25Float = 1.33 * pow(pm25Float, 0.85); //cong thuc cua airbeam
     uint16_t pm25Int = pm25Float + 0.5;
 
@@ -506,16 +517,10 @@ void getDustData()
 
     lcd.setCursor(12, 0);
     lcd.print(pm25Char);
-
-    //lcd.print(" ");
-    //lcd.print(dataDustCount);
-
-    /* debugSerial.print(data.PM_AE_UG_2_5);
-      debugSerial.print(">");
-      debugSerial.println(pm25Int); */
-
-    //logDataToSD(0, 0, data.PM_AE_UG_1_0, data.PM_AE_UG_2_5, data.PM_AE_UG_10_0, 0);
-  }
+                    }
+                }
+            }
+        }
 }
 
 void lcdInit()
