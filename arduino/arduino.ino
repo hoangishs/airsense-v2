@@ -72,7 +72,7 @@ void setup()
   debugSerial.begin(9600);
   dustSerial.begin(9600);
   Serial.begin(9600);
-  rgbInit();
+  //rgbInit();
   lcdInit();
   rtc.begin();
   if (SD.begin(10))
@@ -326,9 +326,14 @@ void getMQ7data()
       COppmSum += COppm;
       dataMQ7Count++;
       logDataToSD(0, 0, 0, 0, 0, COppm);
-      uint16_t COppmInt = COppm + 0.5;
-      lcd.setCursor(13, 1);
-      lcd.print(COppmInt);
+      if (COppm < 999.5)
+      {
+        uint16_t COppmInt = COppm + 0.5;
+        char COppmChar[3];
+        sprintf(COppmChar, "%3d", COppmInt);
+        lcd.setCursor(13, 1);
+        lcd.print(COppmChar);
+      }
     }
   }
 }
@@ -344,7 +349,7 @@ void getDHTdata()
       debugSerial.println( temperature, 1 );
       debugSerial.println( humidity, 1 );
 
-      if (temperature != 0 && humidity != 0)
+      if (temperature > 0 && humidity > 0 && temperature < 100 && humidity < 99.5)
       {
         temperatureSum += temperature;
         humiditySum += humidity;
@@ -521,7 +526,7 @@ void getDustData()
 void lcdInit()
 {
   lcd.begin();
-  lcd.setCursor(0, 0);    lcd.print("--:-- PM2.5:----");
+  lcd.setCursor(0, 0);   lcd.print("--:-- PM2.5:----");
   lcd.setCursor(0, 1);   lcd.print("T:-- H:-- CO:---");
 
   //  lcd.setCursor(0, 0); //Colum-Row
