@@ -50,8 +50,6 @@ void setup()
 
 void loop()
 {
-  if (isBlinkLed)
-    blinkLed(5000);
   if (longPressButton())
   {
     DEBUG.println(" - long press!");
@@ -187,7 +185,7 @@ void loop()
   {
     isBlinkLed = true;
     if (isBlinkLed)
-      blinkLed(2000);
+      blinkLed(2500);
     if (!debugClient)
     {
       debugClient = debugServer.available();
@@ -211,7 +209,7 @@ void loop()
     if (isInternet)
     {
       if (isBlinkLed)
-        blinkLed(1000);
+        blinkLed(5000);
       if (isGetTime || (millis() - lastGetTime > 60000))
       {
         dateTime = NTPch.getNTPtime(7.0, 0);
@@ -284,5 +282,10 @@ void loop()
         }
       }
     }
+  }
+  else
+  {
+    if (isBlinkLed)
+      blinkLed(500);
   }
 }

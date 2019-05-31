@@ -321,20 +321,20 @@ void getMQ7data()
 
     debugSerial.println( COppm, 1 );
 
-    if (COppm > 20.0 && COppm < 2000.0)
+    //    if (COppm > 20.0 && COppm < 2000.0)
+    //    {
+    COppmSum += COppm;
+    dataMQ7Count++;
+    //logDataToSD(0, 0, 0, 0, 0, COppm);
+    if (COppm < 999.5)
     {
-      COppmSum += COppm;
-      dataMQ7Count++;
-      logDataToSD(0, 0, 0, 0, 0, COppm);
-      if (COppm < 999.5)
-      {
-        uint16_t COppmInt = COppm + 0.5;
-        char COppmChar[3];
-        sprintf(COppmChar, "%3d", COppmInt);
-        lcd.setCursor(13, 1);
-        lcd.print(COppmChar);
-      }
+      uint16_t COppmInt = COppm + 0.5;
+      char COppmChar[3];
+      sprintf(COppmChar, "%3d", COppmInt);
+      lcd.setCursor(13, 1);
+      lcd.print(COppmChar);
     }
+    //    }
   }
 }
 
